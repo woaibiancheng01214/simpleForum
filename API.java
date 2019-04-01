@@ -60,7 +60,6 @@ public class API implements APIProvider {
     @Override
     public Result<PersonView> getPersonView(String username) {
         Result<PersonView> result;
-
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT name, username, stuId FROM Person WHERE username = ? "
@@ -68,8 +67,8 @@ public class API implements APIProvider {
             s.setString(1,username);
             ResultSet r = s.executeQuery();
             PersonView resultview = null;
-            while (r.next()) {
-                String name = r.getString("name");
+            if(r.next())
+            {   String name = r.getString("name");
                 String stuId = r.getString("stuId");
                 if(stuId == null) stuId = "null";
                 resultview = new PersonView(name,username,stuId);
