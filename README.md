@@ -8,3 +8,7 @@
 # Li is working on:
   * public Result<List<ForumSummaryView>> getForums()  
   * public Result<PostView> getLatestPost(int topicId)
+
+# Ziteng Wang is working on:
+  * public Result<List<SimpleForumSummaryView>> getSimpleForums()
+  * public Result createForum(String title)
