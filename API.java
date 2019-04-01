@@ -36,6 +36,7 @@ public class API implements APIProvider {
     @Override
     public Result<Map<String, String>> getUsers() {
         Result<Map<String, String>> result;
+        
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT username, name FROM Person"
@@ -59,6 +60,7 @@ public class API implements APIProvider {
     @Override
     public Result<PersonView> getPersonView(String username) {
         Result<PersonView> result;
+
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT name, username, stuId FROM Person WHERE username = ? "
@@ -69,7 +71,7 @@ public class API implements APIProvider {
             while (r.next()) {
                 String name = r.getString("name");
                 String stuId = r.getString("stuId");
-                if(stuId==null) stuId = "null";
+                if(stuId == null) stuId = "null";
                 resultview = new PersonView(name,username,stuId);
             }
             result = Result.success(resultview);
@@ -83,12 +85,11 @@ public class API implements APIProvider {
 
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        System.out.println("fdf");
-        Result result = null;
+        Result result;
 
         try {
             PreparedStatement s = c.prepareStatement(
-                "INSERT INTO Person (name, username, stuId) VALUES(?, ?, ?)"
+                "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)"
             );
             s.setString(1,name);
             s.setString(2,username);
@@ -117,14 +118,15 @@ public class API implements APIProvider {
 
         try {
             PreparedStatement s = c.prepareStatement(
-                "SELECT id, title FROM Forum;"
+                "SELECT id, title FROM Forum"
             );
             List<SimpleForumSummaryView> list = new ArrayList<SimpleForumSummaryView>();
+            SimpleForumSummaryView sfsv = null;
             ResultSet r = s.executeQuery();
             while (r.next()) {
                 int id = r.getInt("id");
                 String title = r.getString("title");
-                SimpleForumSummaryView sfsv = new SimpleForumSummaryView(id, title);
+                sfsv = new SimpleForumSummaryView(id, title);
                 list.add(sfsv);
             }
             result = Result.success(list);
@@ -138,8 +140,38 @@ public class API implements APIProvider {
 
     @Override
     public Result createForum(String title) {
-       System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result result;
+        if (title == null) {
+            return Result.failure("Forum title can not be NULL!");
+        }
+        if (title.equals("")) {
+            return Result.failure("Forum title can not be empty!");
+        }
+        for (SimpleForumSummaryView item : getSimpleForums().getValue()) {
+            if (title.equals(item.getTitle())) {
+                return Result.failure("Forum existed!");
+            }
+        }
+
+        try {
+            PreparedStatement s = c.prepareStatement(
+                "INSERT INTO Forum (title) VALUES (?)"
+            );
+            s.setString(1, title);
+            s.executeUpdate();
+            result = Result.success(title);
+            s.close();
+            c.commit();
+        } catch (SQLException e) {
+            try {
+                c.rollback();
+            } catch (SQLException f) {
+                return Result.fatal(f.getMessage());
+            }
+            return Result.fatal(e.getMessage());
+        }
+
+        return result;
     }
 
     /* A.3 */
