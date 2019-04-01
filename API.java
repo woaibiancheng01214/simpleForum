@@ -88,7 +88,8 @@ public class API implements APIProvider {
 
         try {
             PreparedStatement s = c.prepareStatement(
-            "INSERT INTO Person (name, username, stuId) VALUES(?, ?, ?)");
+                "INSERT INTO Person (name, username, stuId) VALUES(?, ?, ?)"
+            );
             s.setString(1,name);
             s.setString(2,username);
             s.setString(3,studentId);
@@ -112,8 +113,27 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<SimpleForumSummaryView>> getSimpleForums() {
-       System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<List<SimpleForumSummaryView>> result;
+
+        try {
+            PreparedStatement s = c.prepareStatement(
+                "SELECT id, title FROM Forum;"
+            );
+            List<SimpleForumSummaryView> list = new ArrayList<SimpleForumSummaryView>();
+            ResultSet r = s.executeQuery();
+            while (r.next()) {
+                int id = r.getInt("id");
+                String title = r.getString("title");
+                SimpleForumSummaryView sfsv = new SimpleForumSummaryView(id, title);
+                list.add(sfsv);
+            }
+            result = Result.success(list);
+            s.close();
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+
+        return result;
     }
 
     @Override
