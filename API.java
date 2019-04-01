@@ -50,7 +50,7 @@ public class API implements APIProvider {
             result = Result.success(map);
             s.close();
         } catch (SQLException e) {
-            result = Result.failure("failure");
+            return Result.fatal(e.getMessage());
         }
         if(result.isSuccess()) System.out.println("getUsers Function sucessfuly excecuted");
         return result;
@@ -69,12 +69,13 @@ public class API implements APIProvider {
             while (r.next()) {
                 String name = r.getString("name");
                 String stuId = r.getString("stuId");
+                if(stuId==null) stuId = "null";
                 resultview = new PersonView(name,username,stuId);
             }
             result = Result.success(resultview);
             s.close();
         } catch (SQLException e) {
-            result = Result.failure("failure");
+            return Result.fatal(e.getMessage());
         }
         if(result.isSuccess()) System.out.println("getPersonView Function sucessfuly excecuted");
         return result;
@@ -82,17 +83,26 @@ public class API implements APIProvider {
 
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-      System.out.println("fdf");
-       Result result=null;
-        try (PreparedStatement s = c.prepareStatement(
-           "INSERT INTO Person (name, username, studentId) VALUES(?, ?, ?)"))
-           { s.setString(1,name);
-             s.setString(2,username);
-             s.setString(3,studentId);
-             result = Result.success();
-             s.close();
+        System.out.println("fdf");
+        Result result = null;
+
+        try {
+            PreparedStatement s = c.prepareStatement(
+            "INSERT INTO Person (name, username, stuId) VALUES(?, ?, ?)");
+            s.setString(1,name);
+            s.setString(2,username);
+            s.setString(3,studentId);
+            s.executeUpdate();
+            result = Result.success();
+            s.close();
+            c.commit();
         } catch (SQLException e) {
-            result = Result.failure("failure");
+            try {
+                c.rollback();
+            } catch (SQLException f) {
+                return Result.fatal(f.getMessage());
+            }
+            return Result.fatal(e.getMessage());
         }
 
         return result;
