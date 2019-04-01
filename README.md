@@ -7,3 +7,4 @@
   
 # Li is working on:
   * public Result<List<ForumSummaryView>> getForums()  
+  * public Result<PostView> getLatestPost(int topicId)
