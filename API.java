@@ -12,6 +12,7 @@ import uk.ac.bris.cs.databases.api.PostView;
 import uk.ac.bris.cs.databases.api.Result;
 import uk.ac.bris.cs.databases.api.PersonView;
 import uk.ac.bris.cs.databases.api.SimpleForumSummaryView;
+import uk.ac.bris.cs.databases.api.SimpleTopicSummaryView;
 import uk.ac.bris.cs.databases.api.SimpleTopicView;
 import uk.ac.bris.cs.databases.api.TopicView;
 
@@ -117,8 +118,26 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<ForumSummaryView>> getForums() {
-       System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<List<ForumSummaryView>> result;
+        try{
+            PreparedStatement s = c.prepareStatement(
+                "SELECT title, id FROM Forum ORDER BY title ASC"
+            );
+            List<ForumSummaryView> list = new ArrayList<>();
+            ResultSet r = s.executeQuery();
+            while(r.next()){
+                int id = r.getInt("id");
+                String title = r.getString("title");
+                ForumSummaryView fsv = new ForumSummaryView(id, title, null);
+                list.add(fsv);
+            }
+            result = Result.success(list);
+            s.close();
+        }catch(SQLException e){
+            result = Result.failure("failure");
+        }
+        if(result.isSuccess()) System.out.println("getForums Function successfully executed!");
+        return result;
     }
 
     @Override
