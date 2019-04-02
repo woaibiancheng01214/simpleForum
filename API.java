@@ -183,8 +183,50 @@ public class API implements APIProvider {
 
     @Override
     public Result<ForumView> getForum(int id) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<ForumView> result;
+        Boolean forumexists = false;
+        for (SimpleForumSummaryView item : getSimpleForums().getValue()) {
+            if (id == item.getId()) {
+                forumexists = true;
+            }
+        }
+        if (forumexists == false) {
+            return Result.failure("Forum doesn't exist!");
+        }
+
+        try {
+            PreparedStatement stsvs = c.prepareStatement(
+                "SELECT topicId, forumId, title FROM Topic WHERE forumId = ?"
+            );
+            stsvs.setInt(1, id);
+            ResultSet stsvr = stsvs.executeQuery();
+            List<SimpleTopicSummaryView> topiclist = new ArrayList<SimpleTopicSummaryView>();
+            SimpleTopicSummaryView stsv;
+            while (stsvr.next()) {
+                int topicid = stsvr.getInt("topicId");
+                String topictitle = stsvr.getString("title");
+                stsv = new SimpleTopicSummaryView(topicid, id, topictitle);
+                topiclist.add(stsv);
+            }
+            ForumView resultview = null;
+            PreparedStatement fvs = c.prepareStatement(
+                "SELECT * FROM Forum WHERE id = ?"
+            );
+            fvs.setInt(1, id);
+            ResultSet fvr = fvs.executeQuery();
+            while (fvr.next()) {
+                String forumtitle = fvr.getString("title");
+                resultview = new ForumView(id, forumtitle, topiclist);
+            }
+
+            result = Result.success(resultview);
+            stsvs.close();
+            fvs.close();
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+
+        return result;
     }
 
     @Override
