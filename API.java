@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 package uk.ac.bris.cs.databases.cwk2;
 
 import java.sql.Connection;
@@ -155,9 +156,9 @@ public class API implements APIProvider {
                     s2.close();
                     ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
                     resultView.add(forumSummaryView);
+                    result = Result.success(resultView);
                 }
             }
-            result = Result.success(resultView);
             s.close();
         } catch(SQLException e){
             result = Result.fatal(e.getMessage());
@@ -182,41 +183,35 @@ public class API implements APIProvider {
     public Result<PostView> getLatestPost(int topicId) {
         Result<PostView> result;
         try{
-            PreparedStatement s1 = c.prepareStatement(
-                "SELECT Topic.forumId AS forum, Person.name AS authorName," +
-                   "Person.username AS authorUserName, text, postedAt, postLike.likes AS likes FROM Topic" +
-            "INNER JOIN Post ON Topic.topicId = Post.topicId" +
-            "INNER JOIN Person ON Post.authorId = Person.id" +
-            "LEFT JOIN (" +
-                "SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post" +
-                "INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId" +
-            ")AS postLike ON postLike.postId = Post.postId" +
-            "WHERE Topic.topicId = ?" +
-            "ORDER BY postedAt DESC" +
+            PreparedStatement s = c.prepareStatement(
+                "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
+                   "Person.username AS authorUserName, text, postedAt, COUNT(*) AS postNumber, " +
+                   "postLike.likes AS likes FROM Topic " +
+            "INNER JOIN Post ON Topic.topicId = Post.topicId " +
+            "INNER JOIN Person ON Post.authorId = Person.id " +
+            "LEFT JOIN ( " +
+                "SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post " +
+                "INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId " +
+            ")AS postLike ON postLike.postId = Post.postId " +
+            "WHERE Topic.topicId = ? " +
+            "ORDER BY postedAt DESC " +
             "LIMIT 1");
-            ResultSet r = s1.executeQuery();
+            ResultSet r = s.executeQuery();
 
-            PreparedStatement s2 = c.prepareStatement("SELECT COUNT(*) AS PostNumber FROM" +
-            "(  SELECT Post.postedAt as postedAt FROM" +
-               "Topic JOIN Post ON Topic.topicId = Post.topicId" +
-               "WHERE Topic.topicId = ?  ORDER BY Post.postedAt ASC) AS a" +
-            "WHERE postedAt <=" +
-            "(  SELECT postedAt FROM Post WHERE Post.postId = ? )");
-            ResultSet r2 = s2.executeQuery();
+            if(r.next()){
+                int forumId = r.getInt("forum");
+                int postNumber = r.getInt("PostNumber");
+                String authorName = r.getString("authorName");
+                String authorUserName = r.getString("authorUserName");
+                String text = r.getString("text");
+                String postedAt = r.getString("postedAt");
+                int likes = r.getInt("likes");
 
-            int forumId = r.getInt("forum");
-            int postNumber = r2.getInt("PostNumber");
-            String authorName = r.getString("authorName");
-            String authorUserName = r.getString("authorUserName");
-            String text = r.getString("text");
-            String postedAt = r.getString("postedAt");
-            int likes = r.getInt("likes");
-
-            PostView resultView = new PostView(forumId, topicId, postNumber,
-                authorName, authorUserName, text, postedAt, likes);
-            result = Result.success(resultView);
-            s1.close();
-            s2.close();
+                PostView resultView = new PostView(forumId, topicId, postNumber,
+                    authorName, authorUserName, text, postedAt, likes);
+                result = Result.success(resultView);
+            }
+            s.close();
         } catch(SQLException e){
             result = Result.failure("failure");
         }
