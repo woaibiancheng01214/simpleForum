@@ -1,4 +1,14 @@
 # LalalaDB_Java
+
+# Latest Comments:
+getSimpleForums() and createForum() is finished.
+Minor format fixes 
+(There are still some points I have doubts, but I don't know if I should fix all of them in my style and in my branch).3)  
+
+ADVICE: Everybody should check APIProvider and PDF to see   
+if the methods you wrote require any parameter checks   
+(e.g. I think addNewPerson() needs that). Possibly also those who are responsible of inserting data.  
+
 # function already finished:
 
   * public Result<Map<String, String>> getUsers()  
