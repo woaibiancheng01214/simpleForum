@@ -11,14 +11,14 @@ if the methods you wrote require any parameter checks
 
 # function already finished:
     
-  ##only roughly tested:   
+  ## only roughly tested:   
   * public Result<Map<String, String>> getUsers()  
   * public Result<PersonView> getPersonView(String username)  
   * public Result addNewPerson(String name, String username, String studentId)  
   * public Result<List<SimpleForumSummaryView>> getSimpleForums() **(merged)**
   * public Result createForum(String title) **(merged)**  
   
-  ##thouroughly tested:   
+  ## thouroughly tested:   
   
 # Li is working on:
   * public Result<List<ForumSummaryView>> getForums()  
