@@ -40,26 +40,20 @@ WHERE Topic.topicId = ? ORDER BY Post.postedAt ASC;
 
 
 -- public Result<PostView> getLatestPost(int topicId);
+-- postNumber is just Count(*), which is the count of the entire joint table
+-- as this is the last post
 SELECT Topic.forumId AS forum, Post.topicId AS topic,
-Person.name AS authorName,
-       Person.username AS authorUserName, text, postedAt, postLike.likes AS likes FROM Topic
-INNER JOIN Post ON Topic.topicId = Post.topicId
+Person.name AS authorName, Person.username AS authorUserName, text,
+COUNT(*) AS postNumber, postedAt, postLike.likes AS likes
+FROM Topic INNER JOIN Post ON Topic.topicId = Post.topicId
 INNER JOIN Person ON Post.authorId = Person.id
 LEFT JOIN (
     SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post
     INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId
 )AS postLike ON postLike.postId = Post.postId
-WHERE Topic.topicId = ?
+WHERE Topic.topicId = 1
 ORDER BY postedAt DESC
 LIMIT 1;
-
----- the postNumber in the function above
-SELECT COUNT(*) AS PostNumber FROM
-(  SELECT Post.postedAt as postedAt FROM
-   Topic JOIN Post ON Topic.topicId = Post.topicId
-   WHERE Topic.topicId = ?  ORDER BY Post.postedAt ASC) AS a
-WHERE postedAt <=
-(  SELECT postedAt FROM Post WHERE Post.postId = ? ) ;
 
 
 -- createPost
