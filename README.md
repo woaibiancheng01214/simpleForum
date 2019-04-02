@@ -17,7 +17,7 @@ if the methods you wrote require any parameter checks
   * public Result addNewPerson(String name, String username, String studentId)  
   * public Result<List<SimpleForumSummaryView>> getSimpleForums() **(merged)**
   * public Result createForum(String title) **(merged)**  
-  --
+  --  
   thouroughly tested:   
   
 # Li is working on:
