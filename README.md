@@ -10,7 +10,7 @@ if the methods you wrote require any parameter checks
 (e.g. I think addNewPerson() needs that). Possibly also those who are responsible of inserting data.  
 
 # function already finished:
-  --
+  --  
   only roughly tested:   
   * public Result<Map<String, String>> getUsers()  
   * public Result<PersonView> getPersonView(String username)  
