@@ -25,7 +25,5 @@ if the methods you wrote require any parameter checks
   ## thouroughly tested:   
   
 # Li is working on:
-  * public Result<List<ForumSummaryView>> getForums()  
-  * public Result<PostView> getLatestPost(int topicId)
 
 # Ziteng Wang is working on:
