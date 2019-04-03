@@ -25,5 +25,5 @@ if the methods you wrote require any parameter checks
   * public Result<PostView> getLatestPost(int topicId)
 
 # Ziteng Wang is working on:
-  * public Result<ForumView> getForum(int id)
+  * public Result<ForumView> getForum(int id) **(finished)** 
   * public Result<SimpleTopicView> getSimpleTopic(int topicId)
