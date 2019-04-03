@@ -141,6 +141,12 @@ public class API implements APIProvider {
                 String forumTitle = r.getString("title");
                 
                 // construct the SimpleTopicSummaryView which is the last element of ForumSummaryView
+                /*
+                Running SQL queries in a loop when there is a good way to avoid this. If you find yourself 
+                doing SQL in a loop because your schema makes it hard to write a particular API call, this 
+                is an opportunity to call a group meeting and discuss adapting the schema (and it gives you 
+                something to write about for Task 1). 
+                */
                 PreparedStatement s2 = c.prepareStatement("SELECT topic.topicId, topic.forumId, topic.title " +
                     "FROM forum JOIN topic ON forum.id = topic.forumId " +
                             "JOIN post ON topic.topicId = post.topicId " +
