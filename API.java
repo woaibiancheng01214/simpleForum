@@ -56,7 +56,7 @@ public class API implements APIProvider {
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        if(result.isSuccess()) System.out.println("getUsers Function sucessfuly excecuted");
+        if (result.isSuccess()) System.out.println("getUsers Function sucessfuly excecuted");
         return result;
     }
 
@@ -73,7 +73,7 @@ public class API implements APIProvider {
             if (r.next())
             {   String name = r.getString("name");
                 String stuId = r.getString("stuId");
-                if(stuId == null) stuId = "null";
+                if (stuId == null) stuId = "null";
                 resultview = new PersonView(name,username,stuId);
             }
             result = Result.success(resultview);
@@ -81,7 +81,7 @@ public class API implements APIProvider {
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        if(result.isSuccess()) System.out.println("getPersonView Function sucessfuly excecuted");
+        if (result.isSuccess()) System.out.println("getPersonView Function sucessfuly excecuted");
         return result;
     }
 
