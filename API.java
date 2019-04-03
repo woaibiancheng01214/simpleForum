@@ -199,7 +199,8 @@ public class API implements APIProvider {
 
         try {
             PreparedStatement stsvs = c.prepareStatement(
-                "SELECT topicId, forumId, title FROM Topic WHERE forumId = ?"
+                "SELECT topicId, forumId, title FROM Topic " + 
+                "WHERE forumId = ? ORDER BY title ASC"
             );
             stsvs.setInt(1, id);
             ResultSet stsvr = stsvs.executeQuery();
