@@ -17,6 +17,8 @@ if the methods you wrote require any parameter checks
   * public Result addNewPerson(String name, String username, String studentId)  
   * public Result<List<SimpleForumSummaryView>> getSimpleForums() **(merged)**
   * public Result createForum(String title) **(merged)**  
+  * public Result<ForumView> getForum(int id) **(waiting for merging)** 
+  * public Result<SimpleTopicView> getSimpleTopic(int topicId) **(waiting for merging)** 
   
   ## thouroughly tested:   
   
@@ -25,5 +27,4 @@ if the methods you wrote require any parameter checks
   * public Result<PostView> getLatestPost(int topicId)
 
 # Ziteng Wang is working on:
-  * public Result<ForumView> getForum(int id) **(finished)** 
-  * public Result<SimpleTopicView> getSimpleTopic(int topicId) **(finished)** 
+
