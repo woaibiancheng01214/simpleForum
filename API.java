@@ -12,13 +12,16 @@ import uk.ac.bris.cs.databases.api.PostView;
 import uk.ac.bris.cs.databases.api.Result;
 import uk.ac.bris.cs.databases.api.PersonView;
 import uk.ac.bris.cs.databases.api.SimpleForumSummaryView;
+import uk.ac.bris.cs.databases.api.SimpleTopicSummaryView;
 import uk.ac.bris.cs.databases.api.SimpleTopicView;
+import uk.ac.bris.cs.databases.api.SimplePostView;
 import uk.ac.bris.cs.databases.api.TopicView;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.*;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 /**
  *
  * @author csxdb
@@ -67,7 +70,7 @@ public class API implements APIProvider {
             s.setString(1,username);
             ResultSet r = s.executeQuery();
             PersonView resultview = null;
-            if(r.next())
+            if (r.next())
             {   String name = r.getString("name");
                 String stuId = r.getString("stuId");
                 if(stuId == null) stuId = "null";
@@ -218,7 +221,6 @@ public class API implements APIProvider {
                 String forumtitle = fvr.getString("title");
                 resultview = new ForumView(id, forumtitle, topiclist);
             }
-
             result = Result.success(resultview);
             stsvs.close();
             fvs.close();
@@ -231,8 +233,50 @@ public class API implements APIProvider {
 
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<SimpleTopicView> result;
+
+        try {
+            PreparedStatement spvs = c.prepareStatement(
+                "SELECT topicId, Person.name AS authorUserName, " + 
+                "text, postedAt FROM Post " + 
+                "INNER JOIN Person ON Post.authorId = Person.Id " + 
+                "WHERE topicId = ? ORDER BY Post.postedAt ASC"
+            );
+            spvs.setInt(1, topicId);
+            ResultSet spvr = spvs.executeQuery();
+            SimpleTopicView resultview = null;
+            List<SimplePostView> postlist = new ArrayList<SimplePostView>();
+            SimplePostView spv = null;
+            int postNumber = 0;
+            while (spvr.next()) {
+                String authorUserName = spvr.getString("authorUserName");
+                String text = spvr.getString("text");
+                String postedAt = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(spvr.getTimestamp("postedAt"));
+                postNumber++;
+                spv = new SimplePostView(postNumber, authorUserName, text, postedAt);
+                postlist.add(spv);
+            }
+            PreparedStatement stvs = c.prepareStatement(
+                "SELECT topicId, title FROM Topic WHERE topicId = ?"
+            );
+            stvs.setInt(1, topicId);
+            ResultSet stvr = stvs.executeQuery();
+            if (stvr.next() == false) {
+                return Result.failure("Topic doesn't exist!");
+            } else {
+                do {
+                    String title = stvr.getString("title");
+                    resultview = new SimpleTopicView(topicId, title, postlist);
+                } while (stvr.next());
+            }
+            result = Result.success(resultview);
+            spvs.close();
+            stvs.close();
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+
+        return result;
     }
 
     @Override
