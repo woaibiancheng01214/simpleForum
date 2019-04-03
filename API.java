@@ -180,8 +180,49 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<ForumSummaryView>> getForums() {
-       System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<List<ForumSummaryView>> result = null;
+        try{
+            PreparedStatement s = c.prepareStatement(
+                "SELECT title, id FROM Forum ORDER BY title ASC"
+            );
+            List<ForumSummaryView> resultView = new ArrayList<>();
+            ResultSet r = s.executeQuery();
+
+            while(r.next()){
+                int forumId = r.getInt("id");
+                String forumTitle = r.getString("title");
+                
+                // construct the SimpleTopicSummaryView which is the last element of ForumSummaryView
+                /*
+                Running SQL queries in a loop when there is a good way to avoid this. If you find yourself 
+                doing SQL in a loop because your schema makes it hard to write a particular API call, this 
+                is an opportunity to call a group meeting and discuss adapting the schema (and it gives you 
+                something to write about for Task 1). 
+                */
+                PreparedStatement s2 = c.prepareStatement("SELECT topic.topicId, topic.forumId, topic.title " +
+                    "FROM forum JOIN topic ON forum.id = topic.forumId " +
+                            "JOIN post ON topic.topicId = post.topicId " +
+                    "WHERE forum.id = ? " +
+                    "ORDER BY post.postedAt DESC " +
+                    "LIMIT 1");
+                s2.setInt(1, forumId);
+                ResultSet r2 = s2.executeQuery();
+                if(r2.next()){
+                    int topicId = r2.getInt("topicId");
+                    String topicTitle = r2.getString("title");
+                    SimpleTopicSummaryView lastTopic = new SimpleTopicSummaryView(topicId, forumId, topicTitle);
+                    s2.close();
+                    ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
+                    resultView.add(forumSummaryView);
+                    result = Result.success(resultView);
+                }
+            }
+            s.close();
+        } catch(SQLException e){
+            result = Result.fatal(e.getMessage());
+        }
+        if(result.isSuccess()) System.out.println("getForums Function successfully executed!");
+        return result;
     }
 
     @Override
@@ -282,8 +323,42 @@ public class API implements APIProvider {
 
     @Override
     public Result<PostView> getLatestPost(int topicId) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<PostView> result = null;
+        try{
+            PreparedStatement s = c.prepareStatement(
+                "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
+                   "Person.username AS authorUserName, text, postedAt, COUNT(*) AS postNumber, " +
+                   "postLike.likes AS likes FROM Topic " +
+            "INNER JOIN Post ON Topic.topicId = Post.topicId " +
+            "INNER JOIN Person ON Post.authorId = Person.id " +
+            "LEFT JOIN ( " +
+                "SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post " +
+                "INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId " +
+            ")AS postLike ON postLike.postId = Post.postId " +
+            "WHERE Topic.topicId = ? " +
+            "ORDER BY postedAt DESC " +
+            "LIMIT 1");
+            ResultSet r = s.executeQuery();
+
+            if(r.next()){
+                int forumId = r.getInt("forum");
+                int postNumber = r.getInt("PostNumber");
+                String authorName = r.getString("authorName");
+                String authorUserName = r.getString("authorUserName");
+                String text = r.getString("text");
+                String postedAt = r.getString("postedAt");
+                int likes = r.getInt("likes");
+
+                PostView resultView = new PostView(forumId, topicId, postNumber,
+                    authorName, authorUserName, text, postedAt, likes);
+                result = Result.success(resultView);
+            }
+            s.close();
+        } catch(SQLException e){
+            result = Result.failure("failure");
+        }
+        if(result.isSuccess()) System.out.println("getLatesPost Function successfully executed!");
+        return result;
     }
 
     @Override
