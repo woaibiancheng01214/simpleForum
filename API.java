@@ -39,7 +39,7 @@ public class API implements APIProvider {
     @Override
     public Result<Map<String, String>> getUsers() {
         Result<Map<String, String>> result;
-        
+
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT username, name FROM Person"
@@ -182,41 +182,43 @@ public class API implements APIProvider {
     public Result<List<ForumSummaryView>> getForums() {
         Result<List<ForumSummaryView>> result = null;
         try{
+            // find (forumId,lastTopicView) pairs
+            Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
+            PreparedStatement s2 = c.prepareStatement(
+            "SELECT topicId, a.forumId as forumId, topicTitle FROM " +
+            " ( SELECT topic.topicId, topic.forumId, topic.title as topicTitle, post.postedAt " +
+            " FROM forum JOIN topic ON forum.id = topic.forumId " +
+            "   JOIN post ON topic.topicId = post.topicId ) AS a " +
+            "JOIN " +
+            "( SELECT topic.forumId, MAX(postedAt) as latest " +
+               " FROM forum JOIN topic ON forum.id = topic.forumId "+
+                     " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
+            "ON a.forumId = b.forumId AND a.postedAt = b.latest " );
+            ResultSet r2 = s2.executeQuery();
+            while(r2.next())
+            {   int forumId = r2.getInt("forumId");
+                int topicId = r2.getInt("topicId");
+                String topicTitle = r2.getString("topicTitle");
+                SimpleTopicSummaryView lastTopic = new SimpleTopicSummaryView(topicId, forumId, topicTitle);
+                forumToTopicMapping.put(forumId,lastTopic);
+            }
+            s2.close();
+
+            // add lasttopic to forumView
             PreparedStatement s = c.prepareStatement(
                 "SELECT title, id FROM Forum ORDER BY title ASC"
             );
-            List<ForumSummaryView> resultView = new ArrayList<>();
             ResultSet r = s.executeQuery();
-
-            while(r.next()){
-                int forumId = r.getInt("id");
+            List<ForumSummaryView> resultView = new ArrayList<>();
+            while(r.next())
+            {   int forumId = r.getInt("id");
                 String forumTitle = r.getString("title");
-                
-                // construct the SimpleTopicSummaryView which is the last element of ForumSummaryView
-                /*
-                Running SQL queries in a loop when there is a good way to avoid this. If you find yourself 
-                doing SQL in a loop because your schema makes it hard to write a particular API call, this 
-                is an opportunity to call a group meeting and discuss adapting the schema (and it gives you 
-                something to write about for Task 1). 
-                */
-                PreparedStatement s2 = c.prepareStatement("SELECT topic.topicId, topic.forumId, topic.title " +
-                    "FROM forum JOIN topic ON forum.id = topic.forumId " +
-                            "JOIN post ON topic.topicId = post.topicId " +
-                    "WHERE forum.id = ? " +
-                    "ORDER BY post.postedAt DESC " +
-                    "LIMIT 1");
-                s2.setInt(1, forumId);
-                ResultSet r2 = s2.executeQuery();
-                if(r2.next()){
-                    int topicId = r2.getInt("topicId");
-                    String topicTitle = r2.getString("title");
-                    SimpleTopicSummaryView lastTopic = new SimpleTopicSummaryView(topicId, forumId, topicTitle);
-                    s2.close();
-                    ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
-                    resultView.add(forumSummaryView);
-                    result = Result.success(resultView);
-                }
+                SimpleTopicSummaryView lastTopic = forumToTopicMapping.get(forumId);
+                // here lastTopic is allowed to be null
+                ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
+                resultView.add(forumSummaryView);
             }
+            result = Result.success(resultView);
             s.close();
         } catch(SQLException e){
             result = Result.fatal(e.getMessage());
@@ -240,7 +242,7 @@ public class API implements APIProvider {
 
         try {
             PreparedStatement stsvs = c.prepareStatement(
-                "SELECT topicId, forumId, title FROM Topic " + 
+                "SELECT topicId, forumId, title FROM Topic " +
                 "WHERE forumId = ? ORDER BY title ASC"
             );
             stsvs.setInt(1, id);
@@ -279,9 +281,9 @@ public class API implements APIProvider {
 
         try {
             PreparedStatement spvs = c.prepareStatement(
-                "SELECT topicId, Person.name AS authorUserName, " + 
-                "text, postedAt FROM Post " + 
-                "INNER JOIN Person ON Post.authorId = Person.Id " + 
+                "SELECT topicId, Person.name AS authorUserName, " +
+                "text, postedAt FROM Post " +
+                "INNER JOIN Person ON Post.authorId = Person.Id " +
                 "WHERE topicId = ? ORDER BY Post.postedAt ASC"
             );
             spvs.setInt(1, topicId);
