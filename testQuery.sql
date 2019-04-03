@@ -23,7 +23,7 @@ INSERT INTO Forum (title) VALUES(?);
 SELECT title, id FROM Forum
 ORDER BY title ASC;
 
--- get the latest-Posted-Topic for each Forum 
+-- get the latest-Posted-Topic for each Forum
 SELECT * FROM
 ( SELECT topic.forumId, forum.title as forumtitle, topic.topicId, topic.title as topictitle, post.postedAt
     FROM forum JOIN topic ON forum.id = topic.forumId
@@ -33,7 +33,7 @@ JOIN
 ( SELECT topic.forumId, MAX(postedAt) as latest
     FROM forum JOIN topic ON forum.id = topic.forumId
             JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS a
-ON b.forumId = a.forumId AND b.postedAt = a.latest;
+ON b.forumId = a.forumId AND b.postedAt = a.latest GROUP BY a.forumId;
 
 -- public Result<ForumView> getForum(int id);
 SELECT Forum.title AS forum, forumId, topicId, Topic.title AS topic FROM Forum

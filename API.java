@@ -183,6 +183,7 @@ public class API implements APIProvider {
         Result<List<ForumSummaryView>> result = null;
         try{
             // find (forumId,lastTopicView) pairs
+            // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
             Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
             PreparedStatement s2 = c.prepareStatement(
             "SELECT topicId, a.forumId as forumId, topicTitle FROM " +
@@ -193,7 +194,7 @@ public class API implements APIProvider {
             "( SELECT topic.forumId, MAX(postedAt) as latest " +
                " FROM forum JOIN topic ON forum.id = topic.forumId "+
                      " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
-            "ON a.forumId = b.forumId AND a.postedAt = b.latest " );
+            "ON a.forumId = b.forumId AND a.postedAt = b.latest GROUP BY a.forumId" );
             ResultSet r2 = s2.executeQuery();
             while(r2.next())
             {   int forumId = r2.getInt("forumId");
