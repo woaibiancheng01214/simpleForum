@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 package uk.ac.bris.cs.databases.cwk2;
 
 import java.sql.Connection;
@@ -15,12 +14,14 @@ import uk.ac.bris.cs.databases.api.PersonView;
 import uk.ac.bris.cs.databases.api.SimpleForumSummaryView;
 import uk.ac.bris.cs.databases.api.SimpleTopicSummaryView;
 import uk.ac.bris.cs.databases.api.SimpleTopicView;
+import uk.ac.bris.cs.databases.api.SimplePostView;
 import uk.ac.bris.cs.databases.api.TopicView;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.*;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 /**
  *
  * @author csxdb
@@ -38,6 +39,7 @@ public class API implements APIProvider {
     @Override
     public Result<Map<String, String>> getUsers() {
         Result<Map<String, String>> result;
+        
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT username, name FROM Person"
@@ -54,13 +56,13 @@ public class API implements APIProvider {
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        if(result.isSuccess()) System.out.println("getUsers Function sucessfuly excecuted");
+        if (result.isSuccess()) System.out.println("getUsers Function sucessfuly excecuted");
         return result;
     }
 
     @Override
-    public Result<PersonView> getPersonView(String username)
-    {   Result<PersonView> result;
+    public Result<PersonView> getPersonView(String username) {
+        Result<PersonView> result;
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT name, username, stuId FROM Person WHERE username = ? "
@@ -68,10 +70,10 @@ public class API implements APIProvider {
             s.setString(1,username);
             ResultSet r = s.executeQuery();
             PersonView resultview = null;
-            if(r.next())
+            if (r.next())
             {   String name = r.getString("name");
                 String stuId = r.getString("stuId");
-                if(stuId==null) stuId = "null";
+                if (stuId == null) stuId = "null";
                 resultview = new PersonView(name,username,stuId);
             }
             result = Result.success(resultview);
@@ -79,18 +81,18 @@ public class API implements APIProvider {
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        if(result.isSuccess()) System.out.println("getPersonView Function sucessfuly excecuted");
+        if (result.isSuccess()) System.out.println("getPersonView Function sucessfuly excecuted");
         return result;
     }
 
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        System.out.println("fdf");
-        Result result = null;
+        Result result;
 
         try {
             PreparedStatement s = c.prepareStatement(
-            "INSERT INTO Person (name, username, stuId) VALUES(?, ?, ?)");
+                "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)"
+            );
             s.setString(1,name);
             s.setString(2,username);
             s.setString(3,studentId);
@@ -225,14 +227,98 @@ public class API implements APIProvider {
 
     @Override
     public Result<ForumView> getForum(int id) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<ForumView> result;
+        Boolean forumexists = false;
+        for (SimpleForumSummaryView item : getSimpleForums().getValue()) {
+            if (id == item.getId()) {
+                forumexists = true;
+            }
+        }
+        if (forumexists == false) {
+            return Result.failure("Forum doesn't exist!");
+        }
+
+        try {
+            PreparedStatement stsvs = c.prepareStatement(
+                "SELECT topicId, forumId, title FROM Topic " + 
+                "WHERE forumId = ? ORDER BY title ASC"
+            );
+            stsvs.setInt(1, id);
+            ResultSet stsvr = stsvs.executeQuery();
+            List<SimpleTopicSummaryView> topiclist = new ArrayList<SimpleTopicSummaryView>();
+            SimpleTopicSummaryView stsv;
+            while (stsvr.next()) {
+                int topicid = stsvr.getInt("topicId");
+                String topictitle = stsvr.getString("title");
+                stsv = new SimpleTopicSummaryView(topicid, id, topictitle);
+                topiclist.add(stsv);
+            }
+            ForumView resultview = null;
+            PreparedStatement fvs = c.prepareStatement(
+                "SELECT * FROM Forum WHERE id = ?"
+            );
+            fvs.setInt(1, id);
+            ResultSet fvr = fvs.executeQuery();
+            while (fvr.next()) {
+                String forumtitle = fvr.getString("title");
+                resultview = new ForumView(id, forumtitle, topiclist);
+            }
+            result = Result.success(resultview);
+            stsvs.close();
+            fvs.close();
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+
+        return result;
     }
 
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<SimpleTopicView> result;
+
+        try {
+            PreparedStatement spvs = c.prepareStatement(
+                "SELECT topicId, Person.name AS authorUserName, " + 
+                "text, postedAt FROM Post " + 
+                "INNER JOIN Person ON Post.authorId = Person.Id " + 
+                "WHERE topicId = ? ORDER BY Post.postedAt ASC"
+            );
+            spvs.setInt(1, topicId);
+            ResultSet spvr = spvs.executeQuery();
+            SimpleTopicView resultview = null;
+            List<SimplePostView> postlist = new ArrayList<SimplePostView>();
+            SimplePostView spv = null;
+            int postNumber = 0;
+            while (spvr.next()) {
+                String authorUserName = spvr.getString("authorUserName");
+                String text = spvr.getString("text");
+                String postedAt = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(spvr.getTimestamp("postedAt"));
+                postNumber++;
+                spv = new SimplePostView(postNumber, authorUserName, text, postedAt);
+                postlist.add(spv);
+            }
+            PreparedStatement stvs = c.prepareStatement(
+                "SELECT topicId, title FROM Topic WHERE topicId = ?"
+            );
+            stvs.setInt(1, topicId);
+            ResultSet stvr = stvs.executeQuery();
+            if (stvr.next() == false) {
+                return Result.failure("Topic doesn't exist!");
+            } else {
+                do {
+                    String title = stvr.getString("title");
+                    resultview = new SimpleTopicView(topicId, title, postlist);
+                } while (stvr.next());
+            }
+            result = Result.success(resultview);
+            spvs.close();
+            stvs.close();
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+
+        return result;
     }
 
     @Override
