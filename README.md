@@ -17,9 +17,11 @@ if the methods you wrote require any parameter checks
   * public Result addNewPerson(String name, String username, String studentId)  
   * public Result<List<SimpleForumSummaryView>> getSimpleForums() **(merged)**
   * public Result createForum(String title) **(merged)**  
-  * public Result<ForumView> getForum(int id) **(waiting for merging)** 
-  * public Result<SimpleTopicView> getSimpleTopic(int topicId) **(waiting for merging)** 
-  
+  * public Result<List<ForumSummaryView>> getForums()  **(merged)** 
+  * public Result<ForumView> getForum(int id) **(merged)** 
+  * public Result<SimpleTopicView> getSimpleTopic(int topicId) **(merged)** 
+  * public Result<PostView> getLatestPost(int topicId) **(merged)** 
+
   ## thouroughly tested:   
   
 # Li is working on:
@@ -27,4 +29,3 @@ if the methods you wrote require any parameter checks
   * public Result<PostView> getLatestPost(int topicId)
 
 # Ziteng Wang is working on:
-
