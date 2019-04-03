@@ -128,7 +128,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<ForumSummaryView>> getForums() {
-        Result<List<ForumSummaryView>> result;
+        Result<List<ForumSummaryView>> result = null;
         try{
             PreparedStatement s = c.prepareStatement(
                 "SELECT title, id FROM Forum ORDER BY title ASC"
@@ -187,7 +187,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<PostView> getLatestPost(int topicId) {
-        Result<PostView> result;
+        Result<PostView> result = null;
         try{
             PreparedStatement s = c.prepareStatement(
                 "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
