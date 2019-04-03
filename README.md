@@ -26,4 +26,4 @@ if the methods you wrote require any parameter checks
 
 # Ziteng Wang is working on:
   * public Result<ForumView> getForum(int id) **(finished)** 
-  * public Result<SimpleTopicView> getSimpleTopic(int topicId)
+  * public Result<SimpleTopicView> getSimpleTopic(int topicId) **(finished)** 
