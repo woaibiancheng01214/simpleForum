@@ -22,9 +22,9 @@ import java.sql.DriverManager;
 import java.sql.*;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
-/**
- *
- * @author csxdb
+/** compile issues
+ * there is a unsafe type uncheck conversion problem, (-XLINT: uncheckED)
+ * i don't think it is solvable because of the nature of the result class ////by wangchao  @author csxdb
  */
 public class API implements APIProvider {
 
@@ -371,25 +371,26 @@ public class API implements APIProvider {
 
     @Override
     public Result createPost(int topicId, String username, String text) {
-        Result result = null;
         if (username == null || text == null) {
             return Result.failure("username or text can not be NULL!");
         }
         if (username.equals("") || text.equals("")) {
             return Result.failure("Author's username or Post's text can not be empty!");
         }
+        Result<Integer> userIdResult = getUserId(username);
+        if(!userIdResult.isSuccess()){
+           return userIdResult;
+        }
+        int authorId = userIdResult.getValue().intValue();
+        return createPostFromUserId(topicId,authorId,text);
+    }
+
+    private Result createPostFromUserId(int topicId, int authorId, String text) {
+        Result result = null;
+
       // the situation topicId fails the foreign key constrain should return
       // failure or fatal?  currently it will fall into SQLException and fatal
         try {
-            PreparedStatement s0 = c.prepareStatement(
-               "SELECT id FROM Person WHERE Person.username = ?"
-            );
-            s0.setString(1,username);
-            ResultSet r = s0.executeQuery();
-            int authorId;
-            if(r.next()){ authorId = r.getInt("id");}
-            else return Result.failure("Author's username doesn't exit");
-
             PreparedStatement s = c.prepareStatement(
                 "INSERT INTO Post (topicId,text,authorId) VALUES ( ? , ? ,? )"
             );
@@ -409,15 +410,87 @@ public class API implements APIProvider {
             }
             return Result.fatal(e.getMessage());
         }
-        if(result.isSuccess()) System.out.println("createPost Function successfully executed!");
+        if(result.isSuccess()) System.out.println("createPost(FromUserId) Function successfully executed!");
+        return result;
+    }
+
+    private Result<Integer> getUserId(String username){
+        Integer userId = null;
+        Result<Integer> result = null;
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+               "SELECT id FROM Person WHERE Person.username = ?"
+            );
+            s0.setString(1,username);
+            ResultSet r = s0.executeQuery();
+            if(r.next()){
+               userId = Integer.valueOf(r.getInt("id"));
+               result = Result.success(userId);
+            }
+            else return Result.failure("There is no such username");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
         return result;
     }
 
     @Override
     public Result createTopic(int forumId, String username, String title, String text) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result result = null;
+        if (username == null || text == null || title == null) {
+            return Result.failure("username or text or topic title can not be NULL!");
+        }
+        if (username.equals("") || text.equals("") || title.equals("")) {
+            return Result.failure("Author's username or initial Post's text or topic's title can not be empty!");
+        }
+
+        Result<Integer> userIdResult = getUserId(username);
+        // bad results handling
+        if(!userIdResult.isSuccess()){  return userIdResult;}
+
+      // the situation forumId fails the foreign key constrain should return
+      // failure or fatal?  currently it will fall into SQLException and on fatal
+        try {
+            int creatorId = userIdResult.getValue().intValue();
+
+            PreparedStatement s = c.prepareStatement(
+                "INSERT INTO Topic (forumId, title, creatorId) VALUES (? ,? , ?) "
+            );
+            s.setInt(1,forumId);
+            s.setString(2,title);
+            s.setInt(3,creatorId);
+
+            s.executeUpdate();
+            result = Result.success();
+            s.close();
+            c.commit();
+
+            int topicId;
+            try{
+               PreparedStatement s1 = c.prepareStatement(
+                   "SELECT LAST_INSERT_ID();"
+               );
+               ResultSet r = s1.executeQuery();
+               if(r.next()) topicId = r.getInt("LAST_INSERT_ID()");
+               else return Result.fatal("function --- LAST_INSERT_ID() in mariadb failed");
+            } catch(SQLException e) { return Result.fatal(e.getMessage()); }
+
+            // using function createPostFromUserId() to save one getUserId query
+            Result firstPostResult = createPostFromUserId(topicId,creatorId,text);
+            if(!firstPostResult.isSuccess()) return firstPostResult;
+
+        } catch (SQLException e) {
+            try {
+                c.rollback();
+            } catch (SQLException f) {
+                return Result.fatal(f.getMessage());
+            }
+            return Result.fatal(e.getMessage());
+        }
+        if(result.isSuccess()) System.out.println("createTopic Function successfully executed!");
+        return result;
     }
+
 
     @Override
     public Result<Integer> countPostsInTopic(int topicId) {

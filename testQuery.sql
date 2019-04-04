@@ -76,7 +76,7 @@ VALUES (? , ?, ( SELECT id FROM Person WHERE Person.username = ? ));
 
 
 -- createTopic
-INSERT INTO Topic ( topicId, forumId, title, creatorId) VALUES (? ,? ,? , ( SELECT Id FROM Person WHERE Person.username = ? ));
+INSERT INTO Topic (forumId, title, creatorId) VALUES (? ,? , ( SELECT Id FROM Person WHERE Person.username = ? ));
 -- plus a java function
 createPost(topicId,creatorId,text);
 
