@@ -10,7 +10,7 @@ if the methods you wrote require any parameter checks
 (e.g. I think addNewPerson() needs that). Possibly also those who are responsible of inserting data.  
 
 # function already finished:
-    
+  all functions in A are finished!     
   ## only roughly tested:   
   * public Result<Map<String, String>> getUsers()  
   * public Result<PersonView> getPersonView(String username)  
@@ -21,7 +21,9 @@ if the methods you wrote require any parameter checks
   * public Result<ForumView> getForum(int id) **(merged)** 
   * public Result<SimpleTopicView> getSimpleTopic(int topicId) **(merged)** 
   * public Result<PostView> getLatestPost(int topicId) **(merged)** 
-
+  * public Result createPost(int topicId, String username, String text);
+  * public Result createTopic(int forumId, String username, String title, String text);
+  * public Result<Integer> countPostsInTopic(int topicId);
   ## thouroughly tested:   
   
 # Li is working on:
