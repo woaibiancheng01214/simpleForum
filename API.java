@@ -491,11 +491,27 @@ public class API implements APIProvider {
         return result;
     }
 
-
+   /* as mentioned in the offical documentation
+       this function is never used on web interface, therefore not tested yet*/
     @Override
     public Result<Integer> countPostsInTopic(int topicId) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Integer count = null;
+        Result<Integer> result = null;
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+               "SELECT COUNT(*) FROM Post JOIN Topic ON Post.topicId = Topic.topicId WHERE Topic.topicId = ? "
+            );
+            s0.setInt(1,topicId);
+            ResultSet r = s0.executeQuery();
+            if(r.next()){
+               count = Integer.valueOf(r.getInt("id"));
+               result = Result.success(count);
+            }
+            else return Result.failure("There is no such topic with this topicId");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+        return result;
     }
 
     /* B.1 */
