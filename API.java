@@ -62,7 +62,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<PersonView> getPersonView(String username) {
-        Result<PersonView> result;
+        Result<PersonView> result = null;
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT name, username, stuId FROM Person WHERE username = ? "
@@ -87,7 +87,7 @@ public class API implements APIProvider {
 
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        Result result;
+        Result result = null;
 
         try {
             PreparedStatement s = c.prepareStatement(
@@ -116,7 +116,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<SimpleForumSummaryView>> getSimpleForums() {
-        Result<List<SimpleForumSummaryView>> result;
+        Result<List<SimpleForumSummaryView>> result = null;
 
         try {
             PreparedStatement s = c.prepareStatement(
@@ -142,14 +142,19 @@ public class API implements APIProvider {
 
     @Override
     public Result createForum(String title) {
-        Result result;
+        Result result = null;
         if (title == null) {
             return Result.failure("Forum title can not be NULL!");
         }
         if (title.equals("")) {
             return Result.failure("Forum title can not be empty!");
         }
-        for (SimpleForumSummaryView item : getSimpleForums().getValue()) {
+
+        // the checking of existing forums here might be simplified
+        // by a query? or?
+
+        List<SimpleForumSummaryView> listOfForums = getSimpleForums().getValue();
+        for (SimpleForumSummaryView item : listOfForums) {
             if (title.equals(item.getTitle())) {
                 return Result.failure("Forum existed!");
             }
@@ -230,7 +235,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<ForumView> getForum(int id) {
-        Result<ForumView> result;
+        Result<ForumView> result = null;
         Boolean forumexists = false;
         for (SimpleForumSummaryView item : getSimpleForums().getValue()) {
             if (id == item.getId()) {
@@ -278,7 +283,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
-        Result<SimpleTopicView> result;
+        Result<SimpleTopicView> result = null;
 
         try {
             PreparedStatement spvs = c.prepareStatement(
@@ -366,8 +371,46 @@ public class API implements APIProvider {
 
     @Override
     public Result createPost(int topicId, String username, String text) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result result = null;
+        if (username == null || text == null) {
+            return Result.failure("username or text can not be NULL!");
+        }
+        if (username.equals("") || text.equals("")) {
+            return Result.failure("Author's username or Post's text can not be empty!");
+        }
+      // the situation topicId fails the foreign key constrain should return
+      // failure or fatal?  currently it will fall into SQLException and fatal
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+               "SELECT id FROM Person WHERE Person.username = ?"
+            );
+            s0.setString(1,username);
+            ResultSet r = s0.executeQuery();
+            int authorId;
+            if(r.next()){ authorId = r.getInt("id");}
+            else return Result.failure("Author's username doesn't exit");
+
+            PreparedStatement s = c.prepareStatement(
+                "INSERT INTO Post (topicId,text,authorId) VALUES ( ? , ? ,? )"
+            );
+            s.setInt(1,topicId);
+            s.setString(2, text);
+            s.setInt(3,authorId);
+
+            s.executeUpdate();
+            result = Result.success();
+            s.close();
+            c.commit();
+        } catch (SQLException e) {
+            try {
+                c.rollback();
+            } catch (SQLException f) {
+                return Result.fatal(f.getMessage());
+            }
+            return Result.fatal(e.getMessage());
+        }
+        if(result.isSuccess()) System.out.println("createPost Function successfully executed!");
+        return result;
     }
 
     @Override
