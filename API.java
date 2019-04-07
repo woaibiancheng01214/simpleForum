@@ -377,19 +377,24 @@ public class API implements APIProvider {
         if (username.equals("") || text.equals("")) {
             return Result.failure("Author's username or Post's text can not be empty!");
         }
+
+        // topicId checking
+        Result topicIdCheck = checkTopicId(topicId);
+        if(!topicIdCheck.isSuccess()) return topicIdCheck;
+
+        // fetch userId and check
         Result<Integer> userIdResult = getUserId(username);
         if(!userIdResult.isSuccess()){
            return userIdResult;
         }
+
         int authorId = userIdResult.getValue().intValue();
         return createPostFromUserId(topicId,authorId,text);
     }
 
     private Result createPostFromUserId(int topicId, int authorId, String text) {
         Result result = null;
-
-      // the situation topicId fails the foreign key constrain should return
-      // failure or fatal?  currently it will fall into SQLException and fatal
+      // everything is already checked in previous function
         try {
             PreparedStatement s = c.prepareStatement(
                 "INSERT INTO Post (topicId,text,authorId) VALUES ( ? , ? ,? )"
@@ -427,7 +432,43 @@ public class API implements APIProvider {
                userId = Integer.valueOf(r.getInt("id"));
                result = Result.success(userId);
             }
-            else return Result.failure("There is no such username");
+            else result = Result.failure("There is no such username");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+        return result;
+    }
+
+    private Result checkTopicId(int topicId)
+    {   Result result = null;
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+               "SELECT * FROM Topic WHERE topicId = ?"
+            );
+            s0.setInt(1,topicId);
+            ResultSet r = s0.executeQuery();
+            if(r.next()){  
+                result = Result.success();
+            }
+            else result = Result.failure("There is no such topicId");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+        return result;
+    }
+
+    private Result checkForumId(int forumId)
+    {   Result result = null;
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+               "SELECT * FROM Forum WHERE id = ?"
+            );
+            s0.setInt(1,forumId);
+            ResultSet r = s0.executeQuery();
+            if(r.next()){  
+                result = Result.success();
+            }
+            else result = Result.failure("There is no such forumId");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
@@ -444,12 +485,14 @@ public class API implements APIProvider {
             return Result.failure("Author's username or initial Post's text or topic's title can not be empty!");
         }
 
+        // forumId checking
+        Result forumIdCheck = checkForumId(forumId);
+        if(!forumIdCheck.isSuccess()) return forumIdCheck;
+
+        //fetch userId and checking
         Result<Integer> userIdResult = getUserId(username);
-        // bad results handling
         if(!userIdResult.isSuccess()){  return userIdResult;}
 
-      // the situation forumId fails the foreign key constrain should return
-      // failure or fatal?  currently it will fall into SQLException and on fatal
         try {
             int creatorId = userIdResult.getValue().intValue();
 
@@ -463,6 +506,9 @@ public class API implements APIProvider {
             s.executeUpdate();
             result = Result.success();
             s.close();
+
+            // potential concurrency problem with these two queries
+            // maybe use insert and fetch method with one query?
             c.commit();
 
             int topicId;
@@ -515,26 +561,294 @@ public class API implements APIProvider {
     }
 
     /* B.1 */
-
+      // the situation topicId fails the foreign key constrain should return
+      // failure. currently it will fall into SQLException and fatal
     @Override
     public Result likeTopic(String username, int topicId, boolean like) {
-      System.out.println("fdf");
-        throw new UnsupportedOperationException("Not supported yet.");
+        if(username==null || username.equals("")) 
+        return Result.failure("username can not be null");
+        
+        // check topicId
+        Result topicIdCheck = checkTopicId(topicId);
+        if(!topicIdCheck.isSuccess()) return topicIdCheck;
+
+        // get user's id and check
+        Result<Integer> userIdResult = getUserId(username);
+        if(!userIdResult.isSuccess()) return userIdResult;
+   
+        Result result = null;
+        int userId = userIdResult.getValue().intValue();
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+               "SELECT * FROM PersonLikeTopic WHERE topicId = ? AND id = ? "
+            );
+            s0.setInt(1,topicId);
+            s0.setInt(2,userId);
+            ResultSet r = s0.executeQuery();
+         
+            // situation judge
+            // if already like/unlike still return success as instructed
+            if(r.next()){
+                if(!like) result = deleteLikeTopic(userId,topicId);
+                else result = Result.success();
+            }
+            else
+            {   if(!like) result = Result.success();
+                else result = addLikeTopic(userId,topicId);
+            }
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+
+        return result;
     }
+
+    private Result addLikeTopic(int userId, int topicId)
+    {   Result result = null;
+        try {
+            PreparedStatement s = c.prepareStatement(
+                "INSERT INTO PersonLikeTopic (id,topicId) VALUES ( ? , ? )"
+            );
+            s.setInt(1,userId);
+            s.setInt(2,topicId);
+            s.executeUpdate();
+            result = Result.success();
+            s.close();
+            c.commit();
+        } catch (SQLException e) {
+            try {
+                c.rollback();
+            } catch (SQLException f) {
+                return Result.fatal(f.getMessage());
+            }
+            return Result.fatal(e.getMessage());
+        }
+        if(result.isSuccess()) System.out.println("addLikeTopic(liketopic) Function successfully executed!");
+        return result;
+    }
+
+    private Result deleteLikeTopic(int userId, int topicId)
+    {   Result result = null;
+        try {
+            PreparedStatement s = c.prepareStatement(
+                "DELETE FROM PersonLikeTopic WHERE id = ? AND topicId = ?"
+            );
+            s.setInt(1,userId);
+            s.setInt(2,topicId);
+            s.executeUpdate();
+            result = Result.success();
+            s.close();
+            c.commit();
+        } catch (SQLException e) {
+            try {
+                c.rollback();
+            } catch (SQLException f) {
+                return Result.fatal(f.getMessage());
+            }
+            return Result.fatal(e.getMessage());
+        }
+        if(result.isSuccess()) System.out.println("deleteLikeTopic(liketopic) Function successfully executed!");
+        return result;
+    }
+
 
     @Override
     public Result likePost(String username, int topicId, int post, boolean like) {
-        throw new UnsupportedOperationException("Not supported yet.");
+         if(username==null || username.equals("")) 
+        return Result.failure("username can not be null");
+        if(post<1) return Result.failure("postNumber should be bigger than or equal to one");
+        
+        // check topicId
+        Result topicIdCheck = checkTopicId(topicId);
+        if(!topicIdCheck.isSuccess()) return topicIdCheck;
+
+        // get user's id and check
+        Result<Integer> userIdResult = getUserId(username);
+        if(!userIdResult.isSuccess()) return userIdResult;
+   
+        Result result = null;
+        int userId = userIdResult.getValue().intValue();
+        int postId;
+
+        //get postId
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+                 " SELECT postId FROM Topic JOIN Post ON Topic.topicId = Post.topicId " +
+                 " WHERE Topic.topicId = ? ORDER BY Post.postedAt ASC LIMIT ?,1 "
+            );
+            s0.setInt(1,topicId);
+            s0.setInt(2,post-1);
+            ResultSet r = s0.executeQuery();
+            if(r.next()) postId = r.getInt("postId");
+            else return Result.failure("this post doesn't exit");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+       
+        // to like or unlike a post
+        try {
+            PreparedStatement s1 = c.prepareStatement(
+               "SELECT * FROM PersonLikePost WHERE id = ? AND postId = ?"
+            );
+            s1.setInt(1,userId);
+            s1.setInt(2,postId);
+            ResultSet r = s1.executeQuery();
+         
+            // situation judge
+            // if already like/unlike still return success as instructed
+            if(r.next()){
+                if(!like) result = deleteLikePost(userId,postId);
+                else result = Result.success();
+            }
+            else
+            {   if(!like) result = Result.success();
+                else result = addLikePost(userId,postId);
+            }
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+
+        return result;
     }
 
+    private Result addLikePost(int userId, int postId)
+    {   Result result = null;
+        try {
+            PreparedStatement s = c.prepareStatement(
+                "INSERT INTO PersonLikePost (id,postId) VALUES ( ? , ? )"
+            );
+            s.setInt(1,userId);
+            s.setInt(2,postId);
+            s.executeUpdate();
+            result = Result.success();
+            s.close();
+            c.commit();
+        } catch (SQLException e) {
+            try {
+                c.rollback();
+            } catch (SQLException f) {
+                return Result.fatal(f.getMessage());
+            }
+            return Result.fatal(e.getMessage());
+        }
+        if(result.isSuccess()) System.out.println("addLikePost(likePost) Function successfully executed!");
+        return result;
+    }
+
+    private Result deleteLikePost(int userId, int postId)
+    {   Result result = null;
+        try {
+            PreparedStatement s = c.prepareStatement(
+                "DELETE FROM PersonLikePost WHERE id = ? AND postId = ?"
+            );
+            s.setInt(1,userId);
+            s.setInt(2,postId);
+            s.executeUpdate();
+            result = Result.success();
+            s.close();
+            c.commit();
+        } catch (SQLException e) {
+            try {
+                c.rollback();
+            } catch (SQLException f) {
+                return Result.fatal(f.getMessage());
+            }
+            return Result.fatal(e.getMessage());
+        }
+        if(result.isSuccess()) System.out.println("deleteLikePost(likePost) Function successfully executed!");
+        return result;
+    }
+
+
+    // **********this function is not in the web user iterface therefore not tested 
     @Override
     public Result<List<PersonView>> getLikers(int topicId) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        Result<List<PersonView>> result = null;
+
+        // check whether topicId exists
+        Result topicIdCheck = checkTopicId(topicId);
+        if(!topicIdCheck.isSuccess()) return topicIdCheck;
+
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+               " SELECT * FROM PersonLikeTopic JOIN Person ON PersonLikeTopic.id = Person.id " +
+               " WHERE topicId = ? "
+            );
+            s0.setInt(1,topicId);
+            ResultSet r = s0.executeQuery();
+         
+            // return success even if it is an empty list
+            List<PersonView> resultlist = new ArrayList<>();
+            while(r.next()){
+                String name = r.getString("name");
+                String stuId = r.getString("stuId");
+                if (stuId == null) stuId = "null";
+                String username = r.getString("username");
+                PersonView resultview = new PersonView(name,username,stuId);
+                resultlist.add(resultview);
+            }
+            result = Result.success(resultlist);
+       } catch (SQLException e) {
+             return Result.fatal(e.getMessage());
+       }
+      
+       return result;
     }
 
     @Override
     public Result<TopicView> getTopic(int topicId) {
-        throw new UnsupportedOperationException("Not supported yet.");
+        //topicId checking existance
+        Result topicIdCheck = checkTopicId(topicId);
+        if(!topicIdCheck.isSuccess()) return topicIdCheck;
+
+        Result<TopicView> result = null;
+        try {
+            PreparedStatement s0 = c.prepareStatement(
+                   "SELECT Topic.topicId AS topicId, Topic.title AS topicTitle, " +
+                   "Forum.id AS forumId, Forum.title AS forumName, Post.text AS postText, " +
+                   "Person.name AS authorName, Person.username AS authorUserName, " +
+                   "COUNT(PersonLikePost.id) AS likes, postedAt FROM Topic " +
+                   "JOIN Forum ON Topic.forumId = Forum.id " +
+                   "JOIN Post ON Topic.topicId = Post.topicId "+
+                   "JOIN Person ON Person.id = Post.authorId "+
+                   "LEFT JOIN PersonLikePost ON Post.postId = PersonLikePost.postId "+
+                   "WHERE Topic.topicId = ? GROUP BY Post.postId ORDER BY postedAt ASC"
+            );
+            s0.setInt(1,topicId);
+            ResultSet r = s0.executeQuery();
+         
+            List<PostView> postlist = new ArrayList<>();
+            TopicView finalView = null;
+            for(int i=1;r.next();i++){
+                String topicTitle = r.getString("topicTitle");
+                int forumId = r.getInt("forumId");
+                String forumName = r.getString("forumName");
+                String postText= r.getString("postText");
+                String authorName = r.getString("authorName");
+                String authorUserName = r.getString("authorUserName");
+                String postedAt = r.getString("postedAt");
+                int likes = r.getInt("likes");
+                int postNumber = i;
+                
+                if(postlist==null || forumName ==null || topicTitle==null) System.out.println("oppppppppppppps");
+
+                PostView resultview = new PostView(forumId,topicId,postNumber,authorName,
+                        authorUserName,postText,postedAt,likes);
+                postlist.add(resultview);
+
+                // intialize the topicview at first, only once
+                if(i==1)
+                {   finalView = new TopicView(forumId,topicId,forumName,topicTitle,postlist); 
+                }
+            }
+
+            // as we have checked topicId exits, sth. else must be wrong in the database
+            if(finalView!=null) result = Result.success(finalView);
+            else return Result.fatal("finalView uninitialized, some methods in getTopic broke");
+       } catch (SQLException e) {
+             return Result.fatal(e.getMessage());
+       }
+       return result;
     }
 
     /* B.2 */

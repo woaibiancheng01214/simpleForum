@@ -49,10 +49,6 @@ INNER JOIN Post ON Topic.topicId = Post.topicId
 INNER JOIN Person ON authorId = Person.Id
 WHERE Topic.topicId = ? ORDER BY Post.postedAt ASC;
 
-INSERT INTO Post (topicId, text, authorId) VALUES
-   (2, '111111sdafaf111111', 1);
-
-
 -- public Result<PostView> getLatestPost(int topicId);
 -- postNumber is just Count(*), which is the count of the entire joint table
 -- as this is the last post
@@ -83,3 +79,26 @@ createPost(topicId,creatorId,text);
 
 -- countPostsInTopic
 SELECT COUNT(*) FROM Post JOIN Topic ON Post.topicId = Topic.topicId WHERE Topic.topicId = ? ;
+
+--B part
+SELECT * FROM PersonLikeTopic JOIN Person ON PersonLikeTopic.id = Person.id JOIN Topic ON PersonLikeTopic.topicId
+ = Topic.topicId;
+
+SELECT postId
+FROM Topic JOIN Post ON Topic.topicId = Post.topicId
+WHERE Topic.topicId = ? ORDER BY Post.postedAt ASC LIMIT ?,1 ;
+
+SELECT * FROM PersonLikePost WHERE id = 1 AND postId =
+( SELECT postId
+FROM Topic JOIN Post ON Topic.topicId = Post.topicId
+WHERE Topic.topicId = 12 ORDER BY Post.postedAt ASC LIMIT 0,1 );
+
+-- getTopic (an indeed epic query)
+SELECT Topic.topicId AS topicId, Topic.title AS topicTitle,
+Forum.id AS forumId, Forum.title AS forumName, Post.text AS postText,Person.name AS authorName, Person.username AS authorUserName,
+COUNT(PersonLikePost.id) AS likes, postedAt FROM Topic
+JOIN Forum ON Topic.forumId = Forum.id
+JOIN Post ON Topic.topicId = Post.topicId
+JOIN Person ON Person.id = Post.authorId
+LEFT JOIN PersonLikePost ON Post.postId = PersonLikePost.postId
+WHERE Topic.topicId = 12 GROUP BY Post.postId ORDER BY postedAt ASC;
