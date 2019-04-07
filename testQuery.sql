@@ -102,3 +102,34 @@ JOIN Post ON Topic.topicId = Post.topicId
 JOIN Person ON Person.id = Post.authorId
 LEFT JOIN PersonLikePost ON Post.postId = PersonLikePost.postId
 WHERE Topic.topicId = 12 GROUP BY Post.postId ORDER BY postedAt ASC;
+
+-- advancedforums
+-- an even more epic query
+ SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle,
+ Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime,
+ author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName
+ FROM Forum
+ LEFT JOIN Topic ON Topic.forumId = Forum.id
+ LEFT JOIN Post ON Topic.topicId = Post.topicId
+ LEFT JOIN Person author ON author.id = authorId
+ LEFT JOIN Person creator ON creator.id = creatorId
+ LEFT JOIN
+ ( SELECT Forum.id AS forumId, MAX(postedAt) AS latest FROM Forum
+ LEFT JOIN Topic ON Topic.forumId = Forum.id
+ LEFT JOIN Post ON Topic.topicId = Post.topicId
+ GROUP BY Forum.id ) AS a ON a.forumId = Forum.id
+ LEFT JOIN
+ ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post
+   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId
+ ) AS c ON Topic.topicId = c.topicId
+ LEFT JOIN
+ ( SELECT postId, COUNT(*) AS likes FROM PersonLikePost GROUP BY postId
+ )  AS b ON Post.postId = b.postId
+ WHERE Post.postedAt = a.latest OR Topic.topicId IS NULL ORDER BY forumTitle;
+
+
+ --likes for post /postcount for topic
+
+JOIN Person ON Person.id = Post.authorId
+LEFT JOIN PersonLikePost ON Post.postId = PersonLikePost.postId
+GROUP BY Post.postId ORDER BY postedAt ASC;

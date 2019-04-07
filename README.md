@@ -26,6 +26,7 @@ if the methods you wrote require any parameter checks
   * public Result createTopic(int forumId, String username, String title, String text);
   * public Result<Integer> countPostsInTopic(int topicId);
   * b1 finished
+  * b2-1 finished 23:21/07/April
   ## thouroughly tested:
 
 # Chao is working on
