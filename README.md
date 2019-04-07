@@ -11,7 +11,7 @@ if the methods you wrote require any parameter checks
 
 # function already finished:
   all functions in A are finished!    
-  all functions in B finished!       
+  all functions in B.1 finished!       
   ## only roughly tested:   
   * public Result<Map<String, String>> getUsers()  
   * public Result<PersonView> getPersonView(String username)  
