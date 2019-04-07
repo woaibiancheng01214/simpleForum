@@ -24,7 +24,10 @@ if the methods you wrote require any parameter checks
   * public Result createPost(int topicId, String username, String text);
   * public Result createTopic(int forumId, String username, String title, String text);
   * public Result<Integer> countPostsInTopic(int topicId);
-  ## thouroughly tested:   
+  ## thouroughly tested: 
+  
+# Chao is working on
+  all the B part  
   
 # Li is working on:
   * the parameter "username" in getPersonView method should be checked whether it's exist or not, if not, return Result.failure is required by David in the Lecture (3.25 47:00->47:36), so as all adding/inserting methods (mentioned by wang).
