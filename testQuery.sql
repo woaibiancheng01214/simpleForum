@@ -123,13 +123,46 @@ WHERE Topic.topicId = 12 GROUP BY Post.postId ORDER BY postedAt ASC;
    ON Topic.topicId = Post.topicId GROUP BY Topic.topicId
  ) AS c ON Topic.topicId = c.topicId
  LEFT JOIN
- ( SELECT postId, COUNT(*) AS likes FROM PersonLikePost GROUP BY postId
- )  AS b ON Post.postId = b.postId
+ ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId
+)  AS b ON Topic.topicId = b.topicId
  WHERE Post.postedAt = a.latest OR Topic.topicId IS NULL ORDER BY forumTitle;
 
 
- --likes for post /postcount for topic
+-- AdvancedPersonView
+  SELECT Person.name, Person.username, Person.stuId, topicLikes, postLikes,
+  Topic.topicId, Topic.forumId, Topic.title AS topicTitle, postCount, created,
+  Post.postedAt as lastPostTime, author.name AS lastPostName, likes,
+  creator.name AS creatorName, creator.username AS creatorUserName
+  FROM Person
+  LEFT JOIN PersonLikeTopic ON Person.id = PersonLikeTopic.id
+  LEFT JOIN Topic ON PersonLikeTopic.topicId = Topic.topicId
+  LEFT JOIN Post ON Topic.topicId = Post.topicId
+  LEFT JOIN Person author ON author.id = Post.authorId
+  LEFT JOIN Person creator ON creator.id = Topic.creatorId
+  LEFT JOIN
+  ( SELECT Topic.topicId AS topicId, MAX(postedAt) AS latest FROM Topic
+  LEFT JOIN Post ON Topic.topicId = Post.topicId
+  GROUP BY Topic.topicId ) AS a ON a.topicId = Topic.topicId
+  LEFT JOIN
+  ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post
+    ON Topic.topicId = Post.topicId GROUP BY Topic.topicId
+  ) AS b ON Topic.topicId = b.topicId
+  LEFT JOIN
+  ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId
+  )  AS d ON Topic.topicId = d.topicId
+  LEFT JOIN
+  ( SELECT author.id, COUNT(PersonLikePost.id) AS postLikes
+    FROM Post JOIN Person author ON author.id = Post.authorId
+    LEFT JOIN PersonlikePost ON Post.postId = PersonLikePost.postId
+    WHERE author.username = 'haha'
+  )  AS e ON e.id = Person.id
+  LEFT JOIN
+  ( SELECT creator.id, COUNT(PersonLikeTopic.id) AS topicLikes
+    FROM Topic JOIN Person creator ON creator.id = Topic.creatorId
+    LEFT JOIN PersonlikeTopic ON Topic.topicId = PersonLikeTopic.topicId
+    WHERE creator.username = 'haha'
+  ) AS c ON c.id = Person.id
+  WHERE Post.postedAt = a.latest AND Person.username = 'haha'
+  GROUP BY Person.id, Topic.topicId;
 
-JOIN Person ON Person.id = Post.authorId
-LEFT JOIN PersonLikePost ON Post.postId = PersonLikePost.postId
-GROUP BY Post.postId ORDER BY postedAt ASC;
+  -- AdvancedForumView

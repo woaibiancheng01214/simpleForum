@@ -876,9 +876,9 @@ public class API implements APIProvider {
                "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId " +
                " ) AS c ON Topic.topicId = c.topicId " +
                " LEFT JOIN " +
-               " ( SELECT postId, COUNT(*) AS likes FROM PersonLikePost GROUP BY postId " +
-               " )  AS b ON Post.postId = b.postId " +
-               " WHERE Post.postedAt = a.latest OR Topic.topicId IS NULL ORDER BY forumTitle " 
+               " (  SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
+               " )  AS b ON Topic.topicId = b.topicId " +
+               " WHERE Post.postedAt = a.latest OR Topic.topicId IS NULL ORDER BY forumTitle "
             );
             ResultSet r = s0.executeQuery();
 
@@ -895,7 +895,7 @@ public class API implements APIProvider {
                 int likes = r.getInt("likes");
                 String creatorName = r.getString("creatorName");
                 String creatorUserName = r.getString("creatorUserName");
-            
+
                 TopicSummaryView lastTopicView = null;
                 if(topicTitle!=null)
                 {   lastTopicView = new TopicSummaryView(topicId,forumId,topicTitle,
@@ -913,7 +913,86 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedPersonView> getAdvancedPersonView(String username) {
-        throw new UnsupportedOperationException("Not supported yet.");
+         Result<AdvancedPersonView> result = null;
+         try {
+              PreparedStatement s0 = c.prepareStatement(
+                 " SELECT Person.name, Person.username, Person.stuId, topicLikes, postLikes," +
+                 " Topic.topicId, Topic.forumId, Topic.title AS topicTitle, postCount, created," +
+                 " Post.postedAt as lastPostTime, author.name AS lastPostName, likes," +
+                 " creator.name AS creatorName, creator.username AS creatorUserName" +
+                 " FROM Person " +
+                 "  LEFT JOIN PersonLikeTopic ON Person.id = PersonLikeTopic.id" +
+                 " LEFT JOIN Topic ON PersonLikeTopic.topicId = Topic.topicId" +
+                 " LEFT JOIN Post ON Topic.topicId = Post.topicId" +
+                 " LEFT JOIN Person author ON author.id = Post.authorId" +
+                 " LEFT JOIN Person creator ON creator.id = Topic.creatorId" +
+                 " LEFT JOIN" +
+                 " ( SELECT Topic.topicId AS topicId, MAX(postedAt) AS latest FROM Topic" +
+                 " LEFT JOIN Post ON Topic.topicId = Post.topicId " +
+                 " GROUP BY Topic.topicId ) AS a ON a.topicId = Topic.topicId" +
+                 " LEFT JOIN" +
+                 " ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post" +
+                 " ON Topic.topicId = Post.topicId GROUP BY Topic.topicId" +
+                 " ) AS b ON Topic.topicId = b.topicId" +
+                 " LEFT JOIN" +
+                 " ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
+                 " )  AS d ON Topic.topicId = d.topicId" +
+                 " LEFT JOIN" +
+                 " ( SELECT author.id, COUNT(PersonLikePost.id) AS postLikes" +
+                 "  FROM Post JOIN Person author ON author.id = Post.authorId" +
+                 " LEFT JOIN PersonlikePost ON Post.postId = PersonLikePost.postId" +
+                 " WHERE author.username = ?" +
+                 "   )  AS e ON e.id = Person.id"+
+                 " LEFT JOIN"+
+                 " ( SELECT creator.id, COUNT(PersonLikeTopic.id) AS topicLikes"+
+                 " FROM Topic JOIN Person creator ON creator.id = Topic.creatorId"+
+                 " LEFT JOIN PersonlikeTopic ON Topic.topicId = PersonLikeTopic.topicId"+
+                 " WHERE creator.username = ? "+
+                 "   ) AS c ON c.id = Person.id"+
+                 " WHERE Post.postedAt = a.latest AND Person.username = ? "+
+                 " GROUP BY Person.id, Topic.topicId"
+              );
+              s0.setString(1,username);
+              s0.setString(2,username);
+              s0.setString(3,username);
+              ResultSet r = s0.executeQuery();
+              AdvancedPersonView finalView = null;
+              List<TopicSummaryView> topicList = new ArrayList<>();
+              for(int i = 0;r.next();i++)
+              {   int topicId = r.getInt("topicId");
+                  int forumId = r.getInt("forumId");
+                  String topicTitle = r.getString("topicTitle");
+                  int postCount = r.getInt("postCount");
+                  String created = r.getString("created");
+                  String lastPostTime = r.getString("lastPostTime");
+                  String lastPostName = r.getString("lastPostName");
+                  int likes = r.getInt("likes");
+                  String creatorName = r.getString("creatorName");
+                  String creatorUserName = r.getString("creatorUserName");
+
+                  TopicSummaryView lastTopicView = null;
+                  if(topicTitle!=null)
+                  {   lastTopicView = new TopicSummaryView(topicId,forumId,topicTitle,
+                      postCount,created,lastPostTime,lastPostName,likes,creatorName,creatorUserName);
+                  }
+                  topicList.add(lastTopicView);
+
+                  // init in beginning
+                  if(i==0)
+                  {   String name = r.getString("name");
+                      String stuId = r.getString("stuId");
+                      int topicLikes = r.getInt("topicLikes");
+                      int postLikes = r.getInt("postLikes");
+                      finalView = new AdvancedPersonView(name,username,stuId,topicLikes,
+                            postLikes, topicList);
+                  }
+              }
+              result = Result.success(finalView);
+         } catch (SQLException e) {
+              return Result.fatal(e.getMessage());
+         }
+         if(result.isSuccess()) System.out.print("hahahahahahaha, AdvancedPersonView successsfully executed");
+         return result;
     }
 
     @Override
