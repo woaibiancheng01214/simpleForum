@@ -40,57 +40,48 @@ public class API implements APIProvider {
 
     @Override
     public Result<Map<String, String>> getUsers() {
-        Result<Map<String, String>> result;
-
+        Map<String, String> map = new HashMap<String, String>();
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT username, name FROM Person"
             );
-            Map<String, String> map = new HashMap<String, String>();
             ResultSet r = s.executeQuery();
             while (r.next()) {
                 String username = r.getString("username");
                 String name = r.getString("name");
                 map.put(username, name);
             }
-            result = Result.success(map);
             s.close();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        if (result.isSuccess()) System.out.println("getUsers Function sucessfuly excecuted");
-        return result;
+        return Result.success(map);
     }
 
     @Override
     public Result<PersonView> getPersonView(String username) {
-        Result<PersonView> result = null;
+        PersonView resultview = null;
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT name, username, stuId FROM Person WHERE username = ? "
             );
             s.setString(1,username);
             ResultSet r = s.executeQuery();
-            PersonView resultview = null;
             if (r.next())
             {   String name = r.getString("name");
                 String stuId = r.getString("stuId");
                 if (stuId == null) stuId = "null";
                 resultview = new PersonView(name,username,stuId);
             }
-            result = Result.success(resultview);
             s.close();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        if (result.isSuccess()) System.out.println("getPersonView Function sucessfuly excecuted");
-        return result;
+        return Result.success(resultview);
     }
 
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        Result result = null;
-
         try {
             PreparedStatement s = c.prepareStatement(
                 "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)"
@@ -99,14 +90,12 @@ public class API implements APIProvider {
             s.setString(2,username);
             s.setString(3,studentId);
             s.executeUpdate();
-            result = Result.success();
             s.close();
             c.commit();
         } catch (SQLException e) {
             return tryRollback(e);
         }
-
-        return result;
+        return Result.success();
     }
 
     private Result tryRollback(SQLException e) {
@@ -122,8 +111,6 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<SimpleForumSummaryView>> getSimpleForums() {
-        Result<List<SimpleForumSummaryView>> result = null;
-
         try {
             PreparedStatement s = c.prepareStatement(
                 "SELECT id, title FROM Forum"
@@ -137,18 +124,15 @@ public class API implements APIProvider {
                 sfsv = new SimpleForumSummaryView(id, title);
                 list.add(sfsv);
             }
-            result = Result.success(list);
             s.close();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-
-        return result;
+        return Result.success();
     }
 
     @Override
     public Result createForum(String title) {
-        Result result = null;
         if (title == null) {
             return Result.failure("Forum title can not be NULL!");
         }
@@ -172,21 +156,20 @@ public class API implements APIProvider {
             );
             s.setString(1, title);
             s.executeUpdate();
-            result = Result.success(title);
             s.close();
             c.commit();
         } catch (SQLException e) {
             return tryRollback(e);
         }
 
-        return result;
+        return Result.success(title);
     }
 
     /* A.3 */
 
     @Override
     public Result<List<ForumSummaryView>> getForums() {
-        Result<List<ForumSummaryView>> result = null;
+        List<ForumSummaryView> resultView = new ArrayList<>();
         try{
             // find (forumId,lastTopicView) pairs
             // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
@@ -216,7 +199,6 @@ public class API implements APIProvider {
                 "SELECT title, id FROM Forum ORDER BY title ASC"
             );
             ResultSet r = s.executeQuery();
-            List<ForumSummaryView> resultView = new ArrayList<>();
             while(r.next())
             {   int forumId = r.getInt("id");
                 String forumTitle = r.getString("title");
@@ -225,18 +207,15 @@ public class API implements APIProvider {
                 ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
                 resultView.add(forumSummaryView);
             }
-            result = Result.success(resultView);
             s.close();
         } catch(SQLException e){
-            result = Result.fatal(e.getMessage());
+            return Result.fatal(e.getMessage());
         }
-        if(result.isSuccess()) System.out.println("getForums Function successfully executed!");
-        return result;
+        return Result.success(resultView);
     }
 
     @Override
     public Result<ForumView> getForum(int id) {
-        Result<ForumView> result = null;
         Boolean forumexists = false;
         for (SimpleForumSummaryView item : getSimpleForums().getValue()) {
             if (id == item.getId()) {
@@ -272,20 +251,17 @@ public class API implements APIProvider {
                 String forumtitle = fvr.getString("title");
                 resultview = new ForumView(id, forumtitle, topiclist);
             }
-            result = Result.success(resultview);
             stsvs.close();
             fvs.close();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-
-        return result;
+        return Result.success();
     }
 
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
-        Result<SimpleTopicView> result = null;
-
+        SimpleTopicView resultview = null;
         try {
             PreparedStatement spvs = c.prepareStatement(
                 "SELECT topicId, Person.name AS authorUserName, " +
@@ -295,7 +271,6 @@ public class API implements APIProvider {
             );
             spvs.setInt(1, topicId);
             ResultSet spvr = spvs.executeQuery();
-            SimpleTopicView resultview = null;
             List<SimplePostView> postlist = new ArrayList<SimplePostView>();
             SimplePostView spv = null;
             int postNumber = 0;
@@ -320,19 +295,17 @@ public class API implements APIProvider {
                     resultview = new SimpleTopicView(topicId, title, postlist);
                 } while (stvr.next());
             }
-            result = Result.success(resultview);
             spvs.close();
             stvs.close();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-
-        return result;
+        return Result.success(resultview);
     }
 
     @Override
     public Result<PostView> getLatestPost(int topicId) {
-        Result<PostView> result = null;
+        PostView resultView = null;
         try{
             PreparedStatement s = c.prepareStatement(
                 "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
@@ -358,16 +331,14 @@ public class API implements APIProvider {
                 String postedAt = r.getString("postedAt");
                 int likes = r.getInt("likes");
 
-                PostView resultView = new PostView(forumId, topicId, postNumber,
+                resultView = new PostView(forumId, topicId, postNumber,
                     authorName, authorUserName, text, postedAt, likes);
-                result = Result.success(resultView);
             }
             s.close();
         } catch(SQLException e){
-            result = Result.failure("failure");
+            return Result.failure("failure");
         }
-        if(result.isSuccess()) System.out.println("getLatesPost Function successfully executed!");
-        return result;
+        return Result.success(resultView);
     }
 
     @Override
@@ -394,7 +365,6 @@ public class API implements APIProvider {
     }
 
     private Result createPostFromUserId(int topicId, int authorId, String text) {
-        Result result = null;
       // everything is already checked in previous function
         try {
             PreparedStatement s = c.prepareStatement(
@@ -405,14 +375,12 @@ public class API implements APIProvider {
             s.setInt(3,authorId);
 
             s.executeUpdate();
-            result = Result.success();
             s.close();
             c.commit();
         } catch (SQLException e) {
             return tryRollback(e);
         }
-        if(result.isSuccess()) System.out.println("createPost(FromUserId) Function successfully executed!");
-        return result;
+        return Result.success();
     }
 
     private Result<Integer> getUserId(String username){
@@ -435,8 +403,7 @@ public class API implements APIProvider {
         return result;
     }
 
-    private Result checkTopicId(int topicId)
-    {   Result result = null;
+    private Result checkTopicId(int topicId) {
         try {
             PreparedStatement s0 = c.prepareStatement(
                "SELECT * FROM Topic WHERE topicId = ?"
@@ -444,17 +411,16 @@ public class API implements APIProvider {
             s0.setInt(1,topicId);
             ResultSet r = s0.executeQuery();
             if(r.next()){
-                result = Result.success();
+                return Result.success();
             }
-            else result = Result.failure("There is no such topicId");
+            else 
+                return Result.failure("There is no such topicId");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        return result;
     }
 
-    private Result checkForumId(int forumId)
-    {   Result result = null;
+    private Result checkForumId(int forumId) {
         try {
             PreparedStatement s0 = c.prepareStatement(
                "SELECT * FROM Forum WHERE id = ?"
@@ -462,18 +428,17 @@ public class API implements APIProvider {
             s0.setInt(1,forumId);
             ResultSet r = s0.executeQuery();
             if(r.next()){
-                result = Result.success();
+                return Result.success();
             }
-            else result = Result.failure("There is no such forumId");
+            else 
+                return Result.failure("There is no such forumId");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        return result;
     }
 
     @Override
     public Result createTopic(int forumId, String username, String title, String text) {
-        Result result = null;
         if (username == null || text == null || title == null) {
             return Result.failure("username or text or topic title can not be NULL!");
         }
@@ -487,7 +452,7 @@ public class API implements APIProvider {
 
         //fetch userId and checking
         Result<Integer> userIdResult = getUserId(username);
-        if(!userIdResult.isSuccess()){  return userIdResult;}
+        if(!userIdResult.isSuccess())  return userIdResult;
 
         try {
             int creatorId = userIdResult.getValue().intValue();
@@ -500,7 +465,6 @@ public class API implements APIProvider {
             s.setInt(3,creatorId);
 
             s.executeUpdate();
-            result = Result.success();
             s.close();
 
             // potential concurrency problem with these two queries
@@ -509,13 +473,18 @@ public class API implements APIProvider {
 
             int topicId;
             try{
-               PreparedStatement s1 = c.prepareStatement(
-                   "SELECT LAST_INSERT_ID();"
-               );
-               ResultSet r = s1.executeQuery();
-               if(r.next()) topicId = r.getInt("LAST_INSERT_ID()");
-               else return Result.fatal("function --- LAST_INSERT_ID() in mariadb failed");
-            } catch(SQLException e) { return Result.fatal(e.getMessage()); }
+                PreparedStatement s1 = c.prepareStatement(
+                    "SELECT LAST_INSERT_ID();"
+                );
+                ResultSet r = s1.executeQuery();
+                if(r.next()) {
+                    topicId = r.getInt("LAST_INSERT_ID()");
+                }
+                else 
+                    return Result.fatal("function --- LAST_INSERT_ID() in mariadb failed");
+            } catch(SQLException e) { 
+                return Result.fatal(e.getMessage());
+            }
 
             // using function createPostFromUserId() to save one getUserId query
             Result firstPostResult = createPostFromUserId(topicId,creatorId,text);
@@ -524,8 +493,7 @@ public class API implements APIProvider {
         } catch (SQLException e) {
             return tryRollback(e);
         }
-        if(result.isSuccess()) System.out.println("createTopic Function successfully executed!");
-        return result;
+        return Result.success();
     }
 
    /* as mentioned in the offical documentation
