@@ -75,7 +75,7 @@ public class API implements APIProvider {
             if (r.next())
             {   String name = r.getString("name");
                 String stuId = r.getString("stuId");
-                if (stuId == null) stuId = "null";
+                if (stuId == null) stuId = "";
                 resultview = new PersonView(name,username,stuId);
             }
             result = Result.success(resultview);
@@ -919,7 +919,7 @@ public class API implements APIProvider {
                  " LEFT JOIN PersonlikeTopic ON Topic.topicId = PersonLikeTopic.topicId"+
                  " WHERE creator.username = ? "+
                  "   ) AS c ON c.id = Person.id"+
-                 " WHERE Post.postedAt = a.latest AND Person.username = ? "+
+                 " WHERE (Post.postedAt = a.latest OR Topic.topicId IS NULL) AND Person.username = ? "+
                  " GROUP BY Person.id, Topic.topicId"
               );
               s0.setString(1,username);
