@@ -27,6 +27,7 @@ if the methods you wrote require any parameter checks
   * public Result<Integer> countPostsInTopic(int topicId);
   * b1 finished
   * b2-1 finished 23:21/07/April
+  * b part all finished
   ## thouroughly tested:
 
 # Chao is working on

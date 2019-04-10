@@ -166,3 +166,24 @@ WHERE Topic.topicId = 12 GROUP BY Post.postId ORDER BY postedAt ASC;
   GROUP BY Person.id, Topic.topicId;
 
   -- AdvancedForumView
+  SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle,
+  Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime,
+  author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName
+  FROM Forum
+  LEFT JOIN Topic ON Topic.forumId = Forum.id
+  LEFT JOIN Post ON Topic.topicId = Post.topicId
+  LEFT JOIN Person author ON author.id = authorId
+  LEFT JOIN Person creator ON creator.id = creatorId
+  LEFT JOIN
+  ( SELECT Topic.topicId as topicId, MAX(postedAt) AS latest FROM Forum
+  LEFT JOIN Topic ON Topic.forumId = Forum.id
+  LEFT JOIN Post ON Topic.topicId = Post.topicId
+  GROUP BY Forum.id,Topic.topicId ) AS a ON a.topicId = Topic.topicId
+  LEFT JOIN
+  ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post
+    ON Topic.topicId = Post.topicId GROUP BY Topic.topicId
+  ) AS c ON Topic.topicId = c.topicId
+  LEFT JOIN
+  ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId
+)  AS b ON Topic.topicId = b.topicId
+  WHERE (Post.postedAt = a.latest OR Topic.topicId IS NULL) AND Forum.id=1 ORDER BY forumTitle;
