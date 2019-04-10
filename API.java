@@ -87,6 +87,7 @@ public class API implements APIProvider {
         return result;
     }
 
+    // havn't and need to judge the input parameters
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
         Result result = null;
@@ -943,13 +944,14 @@ public class API implements APIProvider {
                   if(topicTitle!=null)
                   {   lastTopicView = new TopicSummaryView(topicId,forumId,topicTitle,
                       postCount,created,lastPostTime,lastPostName,likes,creatorName,creatorUserName);
+                      topicList.add(lastTopicView);
                   }
-                  topicList.add(lastTopicView);
 
                   // init in beginning
                   if(i==0)
                   {   String name = r.getString("name");
                       String stuId = r.getString("stuId");
+                      if(stuId==null) stuId = "";
                       int topicLikes = r.getInt("topicLikes");
                       int postLikes = r.getInt("postLikes");
                       finalView = new AdvancedPersonView(name,username,stuId,topicLikes,
