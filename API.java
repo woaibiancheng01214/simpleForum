@@ -103,15 +103,19 @@ public class API implements APIProvider {
             s.close();
             c.commit();
         } catch (SQLException e) {
-            try {
-                c.rollback();
-            } catch (SQLException f) {
-                return Result.fatal(f.getMessage());
-            }
-            return Result.fatal(e.getMessage());
+            return tryRollback(e);
         }
 
         return result;
+    }
+
+    private Result tryRollback(SQLException e) {
+        try {
+            c.rollback();
+        } catch (SQLException f) {
+            return Result.fatal(f.getMessage());
+        }
+        return Result.fatal(e.getMessage());
     }
 
     /* A.2 */
@@ -172,12 +176,7 @@ public class API implements APIProvider {
             s.close();
             c.commit();
         } catch (SQLException e) {
-            try {
-                c.rollback();
-            } catch (SQLException f) {
-                return Result.fatal(f.getMessage());
-            }
-            return Result.fatal(e.getMessage());
+            return tryRollback(e);
         }
 
         return result;
@@ -410,12 +409,7 @@ public class API implements APIProvider {
             s.close();
             c.commit();
         } catch (SQLException e) {
-            try {
-                c.rollback();
-            } catch (SQLException f) {
-                return Result.fatal(f.getMessage());
-            }
-            return Result.fatal(e.getMessage());
+            return tryRollback(e);
         }
         if(result.isSuccess()) System.out.println("createPost(FromUserId) Function successfully executed!");
         return result;
@@ -528,12 +522,7 @@ public class API implements APIProvider {
             if(!firstPostResult.isSuccess()) return firstPostResult;
 
         } catch (SQLException e) {
-            try {
-                c.rollback();
-            } catch (SQLException f) {
-                return Result.fatal(f.getMessage());
-            }
-            return Result.fatal(e.getMessage());
+            return tryRollback(e);
         }
         if(result.isSuccess()) System.out.println("createTopic Function successfully executed!");
         return result;
@@ -618,12 +607,7 @@ public class API implements APIProvider {
             s.close();
             c.commit();
         } catch (SQLException e) {
-            try {
-                c.rollback();
-            } catch (SQLException f) {
-                return Result.fatal(f.getMessage());
-            }
-            return Result.fatal(e.getMessage());
+            return tryRollback(e);
         }
         if(result.isSuccess()) System.out.println("addLikeTopic(liketopic) Function successfully executed!");
         return result;
@@ -642,12 +626,7 @@ public class API implements APIProvider {
             s.close();
             c.commit();
         } catch (SQLException e) {
-            try {
-                c.rollback();
-            } catch (SQLException f) {
-                return Result.fatal(f.getMessage());
-            }
-            return Result.fatal(e.getMessage());
+            return tryRollback(e);
         }
         if(result.isSuccess()) System.out.println("deleteLikeTopic(liketopic) Function successfully executed!");
         return result;
@@ -726,12 +705,7 @@ public class API implements APIProvider {
             s.close();
             c.commit();
         } catch (SQLException e) {
-            try {
-                c.rollback();
-            } catch (SQLException f) {
-                return Result.fatal(f.getMessage());
-            }
-            return Result.fatal(e.getMessage());
+            return tryRollback(e);
         }
         if(result.isSuccess()) System.out.println("addLikePost(likePost) Function successfully executed!");
         return result;
@@ -750,12 +724,7 @@ public class API implements APIProvider {
             s.close();
             c.commit();
         } catch (SQLException e) {
-            try {
-                c.rollback();
-            } catch (SQLException f) {
-                return Result.fatal(f.getMessage());
-            }
-            return Result.fatal(e.getMessage());
+            return tryRollback(e);
         }
         if(result.isSuccess()) System.out.println("deleteLikePost(likePost) Function successfully executed!");
         return result;
