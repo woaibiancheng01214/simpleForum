@@ -125,10 +125,10 @@ public class API implements APIProvider {
                 list.add(sfsv);
             }
             s.close();
+            return Result.success(list);
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        return Result.success();
     }
 
     @Override
@@ -234,17 +234,15 @@ public class API implements APIProvider {
             stsvs.setInt(1, id);
             ResultSet stsvr = stsvs.executeQuery();
             List<SimpleTopicSummaryView> topiclist = new ArrayList<SimpleTopicSummaryView>();
-            SimpleTopicSummaryView stsv;
             while (stsvr.next()) {
                 int topicid = stsvr.getInt("topicId");
                 String topictitle = stsvr.getString("title");
-                stsv = new SimpleTopicSummaryView(topicid, id, topictitle);
-                topiclist.add(stsv);
+                topiclist.add(new SimpleTopicSummaryView(topicid, id, topictitle));
             }
-            ForumView resultview = null;
             PreparedStatement fvs = c.prepareStatement(
                 "SELECT * FROM Forum WHERE id = ?"
             );
+            ForumView resultview = null;
             fvs.setInt(1, id);
             ResultSet fvr = fvs.executeQuery();
             while (fvr.next()) {
@@ -253,10 +251,10 @@ public class API implements APIProvider {
             }
             stsvs.close();
             fvs.close();
+            return Result.success(resultview);
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        return Result.success();
     }
 
     @Override
@@ -272,15 +270,13 @@ public class API implements APIProvider {
             spvs.setInt(1, topicId);
             ResultSet spvr = spvs.executeQuery();
             List<SimplePostView> postlist = new ArrayList<SimplePostView>();
-            SimplePostView spv = null;
             int postNumber = 0;
             while (spvr.next()) {
                 String authorUserName = spvr.getString("authorUserName");
                 String text = spvr.getString("text");
                 String postedAt = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(spvr.getTimestamp("postedAt"));
                 postNumber++;
-                spv = new SimplePostView(postNumber, authorUserName, text, postedAt);
-                postlist.add(spv);
+                postlist.add(new SimplePostView(postNumber, authorUserName, text, postedAt));
             }
             PreparedStatement stvs = c.prepareStatement(
                 "SELECT topicId, title FROM Topic WHERE topicId = ?"
@@ -385,7 +381,6 @@ public class API implements APIProvider {
 
     private Result<Integer> getUserId(String username){
         Integer userId = null;
-        Result<Integer> result = null;
         try {
             PreparedStatement s0 = c.prepareStatement(
                "SELECT id FROM Person WHERE Person.username = ?"
@@ -394,13 +389,13 @@ public class API implements APIProvider {
             ResultSet r = s0.executeQuery();
             if(r.next()){
                userId = Integer.valueOf(r.getInt("id"));
-               result = Result.success(userId);
             }
-            else result = Result.failure("There is no such username");
+            else 
+                return Result.failure("There is no such username");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        return result;
+        return Result.success(userId);
     }
 
     private Result checkTopicId(int topicId) {
@@ -501,7 +496,6 @@ public class API implements APIProvider {
     @Override
     public Result<Integer> countPostsInTopic(int topicId) {
         Integer count = null;
-        Result<Integer> result = null;
         try {
             PreparedStatement s0 = c.prepareStatement(
                "SELECT COUNT(*) FROM Post JOIN Topic ON Post.topicId = Topic.topicId WHERE Topic.topicId = ? "
@@ -510,13 +504,13 @@ public class API implements APIProvider {
             ResultSet r = s0.executeQuery();
             if(r.next()){
                count = Integer.valueOf(r.getInt("id"));
-               result = Result.success(count);
             }
-            else return Result.failure("There is no such topic with this topicId");
+            else 
+                return Result.failure("There is no such topic with this topicId");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
-        return result;
+        return Result.success(count);
     }
 
     /* B.1 */
@@ -548,12 +542,12 @@ public class API implements APIProvider {
             // situation judge
             // if already like/unlike still return success as instructed
             if(r.next()){
-                if(!like) result = deleteLikeTopic(userId,topicId);
+                if(!like) result = updateLikeTopic(userId,topicId,"delete");
                 else result = Result.success();
             }
             else
             {   if(!like) result = Result.success();
-                else result = addLikeTopic(userId,topicId);
+                else result = updateLikeTopic(userId,topicId,"add");
             }
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
@@ -562,44 +556,25 @@ public class API implements APIProvider {
         return result;
     }
 
-    private Result addLikeTopic(int userId, int topicId)
-    {   Result result = null;
+    private Result updateLikeTopic(int userId, int topicId, String operation) {
+        String stmt = null;
+        if(operation.equals("add")) {
+            stmt = "INSERT INTO PersonLikeTopic (id,topicId) VALUES ( ? , ? )";
+        }
+        else 
+            stmt = "DELETE FROM PersonLikeTopic WHERE id = ? AND topicId = ?";
         try {
-            PreparedStatement s = c.prepareStatement(
-                "INSERT INTO PersonLikeTopic (id,topicId) VALUES ( ? , ? )"
-            );
+            PreparedStatement s = c.prepareStatement(stmt);
             s.setInt(1,userId);
             s.setInt(2,topicId);
             s.executeUpdate();
-            result = Result.success();
             s.close();
             c.commit();
         } catch (SQLException e) {
             return tryRollback(e);
         }
-        if(result.isSuccess()) System.out.println("addLikeTopic(liketopic) Function successfully executed!");
-        return result;
+        return Result.success();
     }
-
-    private Result deleteLikeTopic(int userId, int topicId)
-    {   Result result = null;
-        try {
-            PreparedStatement s = c.prepareStatement(
-                "DELETE FROM PersonLikeTopic WHERE id = ? AND topicId = ?"
-            );
-            s.setInt(1,userId);
-            s.setInt(2,topicId);
-            s.executeUpdate();
-            result = Result.success();
-            s.close();
-            c.commit();
-        } catch (SQLException e) {
-            return tryRollback(e);
-        }
-        if(result.isSuccess()) System.out.println("deleteLikeTopic(liketopic) Function successfully executed!");
-        return result;
-    }
-
 
     @Override
     public Result likePost(String username, int topicId, int post, boolean like) {
