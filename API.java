@@ -185,7 +185,7 @@ public class API implements APIProvider {
                      " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
             "ON a.forumId = b.forumId AND a.postedAt = b.latest GROUP BY a.forumId" );
             ResultSet r2 = s2.executeQuery();
-            while (r2.next()) {   
+            while (r2.next()) {
                 int forumId = r2.getInt("forumId");
                 int topicId = r2.getInt("topicId");
                 String topicTitle = r2.getString("topicTitle");
@@ -285,7 +285,8 @@ public class API implements APIProvider {
             ResultSet stvr = stvs.executeQuery();
             if (stvr.next() == false) {
                 return Result.failure("Topic doesn't exist!");
-            } else {
+            } 
+            else {
                 do {
                     String title = stvr.getString("title");
                     resultview = new SimpleTopicView(topicId, title, postlist);
@@ -904,7 +905,7 @@ public class API implements APIProvider {
         ResultSet r = s0.executeQuery();
         AdvancedForumView finalView = null;
         List<TopicSummaryView> topicList = new ArrayList<>();
-        for(int i = 0;r.next();i++) {   
+        for(int i = 0;r.next();i++) {
             int topicId = r.getInt("topicId");
             int forumId = r.getInt("forumId");
             String topicTitle = r.getString("topicTitle");
