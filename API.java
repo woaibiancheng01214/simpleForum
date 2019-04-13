@@ -140,15 +140,9 @@ public class API implements APIProvider {
             return Result.failure("Forum title can not be empty!");
         }
 
-        // the checking of existing forums here might be simplified
-        // by a query? or?
-
-        List<SimpleForumSummaryView> listOfForums = getSimpleForums().getValue();
-        for (SimpleForumSummaryView item : listOfForums) {
-            if (title.equals(item.getTitle())) {
-                return Result.failure("Forum existed!");
-            }
-        }
+        // simplified by checkForum method
+        Result forumIdCheck = checkForum(-1, title);
+        if (!forumIdCheck.isSuccess()) return forumIdCheck;
 
         try {
             PreparedStatement s = c.prepareStatement(
@@ -175,7 +169,8 @@ public class API implements APIProvider {
             // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
             Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
             PreparedStatement s2 = c.prepareStatement(
-                "SELECT topicId, a.forumId as forumId, topicTitle FROM " +
+                "SELECT topicId, a.forumId as forumId, topicTitle " +
+                "FROM " +
                 " ( SELECT topic.topicId, topic.forumId, topic.title as topicTitle, post.postedAt " +
                 " FROM forum JOIN topic ON forum.id = topic.forumId " +
                 "   JOIN post ON topic.topicId = post.topicId ) AS a " +
@@ -204,7 +199,7 @@ public class API implements APIProvider {
                 int forumId = r.getInt("id");
                 String forumTitle = r.getString("title");
                 SimpleTopicSummaryView lastTopic = forumToTopicMapping.get(forumId);
-                // here lastTopic is allowed to be null
+                // here lastTopic is unchecked so it is allowed to be null
                 ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
                 resultView.add(forumSummaryView);
             }
@@ -217,15 +212,9 @@ public class API implements APIProvider {
 
     @Override
     public Result<ForumView> getForum(int id) {
-        Boolean forumexists = false;
-        for (SimpleForumSummaryView item : getSimpleForums().getValue()) {
-            if (id == item.getId()) {
-                forumexists = true;
-            }
-        }
-        if (forumexists == false) {
-            return Result.failure("Forum doesn't exist!");
-        }
+        // simplified by checkForum method
+        Result forumIdCheck = checkForum(id, null);
+        if (!forumIdCheck.isSuccess()) return forumIdCheck;
 
         try {
             PreparedStatement stsvs = c.prepareStatement(
@@ -267,7 +256,7 @@ public class API implements APIProvider {
         try {
             PreparedStatement spvs = c.prepareStatement(
                 "SELECT topicId, Person.name AS authorUserName, " +
-                "text, postedAt FROM Post " +
+                "   text, postedAt FROM Post " +
                 "INNER JOIN Person ON Post.authorId = Person.Id " +
                 "WHERE topicId = ? ORDER BY Post.postedAt ASC"
             );
@@ -415,23 +404,29 @@ public class API implements APIProvider {
             if (r.next())
                 return Result.success();
             else 
-                return Result.failure("There is no such topicId");
+                return Result.failure("There is no such topic");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
     }
 
-    private Result checkForumId(int forumId) {
+    private Result checkForum(int forumId, String title) {
+        String stmt;
+        if (title != null){
+            stmt = "SELECT * FROM Forum WHERE title = ?";
+        }
+        else{
+            stmt = "SELECT * FROM Forum WHERE id = ?";
+        }
         try {
-            PreparedStatement s0 = c.prepareStatement(
-               "SELECT * FROM Forum WHERE id = ?"
-            );
-            s0.setInt(1,forumId);
+            PreparedStatement s0 = c.prepareStatement(stmt);
+            if (title != null) s0.setString(1, title);
+            else s0.setInt(1,forumId);
             ResultSet r = s0.executeQuery();
             if (r.next())
                 return Result.success();
             else 
-                return Result.failure("There is no such forumId");
+                return Result.failure("There is no such forum");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
@@ -447,7 +442,7 @@ public class API implements APIProvider {
         }
 
         // forumId checking
-        Result forumIdCheck = checkForumId(forumId);
+        Result forumIdCheck = checkForum(forumId, null);
         if (!forumIdCheck.isSuccess()) return forumIdCheck;
 
         //fetch userId and checking
@@ -557,6 +552,7 @@ public class API implements APIProvider {
         return result;
     }
 
+    // add and delete topic methods were integrated into one method
     private Result updateLikeTopic(int userId, int topicId, String operation) {
         String stmt = null;
         if (operation.equals("add"))
@@ -637,6 +633,7 @@ public class API implements APIProvider {
         return result;
     }
 
+    // add and delete post methods were integrated into one method
     private Result updateLikePost(int userId, int postId, String operation) {
         String stmt = null;
         if (operation.equals("add"))
@@ -666,7 +663,8 @@ public class API implements APIProvider {
 
         try {
             PreparedStatement s = c.prepareStatement(
-                " SELECT * FROM PersonLikeTopic JOIN Person ON PersonLikeTopic.id = Person.id " +
+                " SELECT * FROM PersonLikeTopic " +
+                " JOIN Person ON PersonLikeTopic.id = Person.id " +
                 " WHERE topicId = ? "
             );
             s.setInt(1,topicId);
@@ -674,7 +672,7 @@ public class API implements APIProvider {
 
             // return success even if it is an empty list
             List<PersonView> resultlist = new ArrayList<>();
-            while(r.next()) {
+            while (r.next()) {
                 String name = r.getString("name");
                 String stuId = r.getString("stuId");
                 if (stuId == null) stuId = "null";
@@ -699,7 +697,7 @@ public class API implements APIProvider {
                 "SELECT Topic.topicId AS topicId, Topic.title AS topicTitle, " +
                 "   Forum.id AS forumId, Forum.title AS forumName, Post.text AS postText, " +
                 "   Person.name AS authorName, Person.username AS authorUserName, " +
-                "   COUNT(PersonLikePost.id) AS likes, postedAt" +
+                "   COUNT(PersonLikePost.id) AS likes, postedAt " +
                 "FROM Topic " +
                 "JOIN Forum ON Topic.forumId = Forum.id " +
                 "JOIN Post ON Topic.topicId = Post.topicId "+
@@ -712,7 +710,7 @@ public class API implements APIProvider {
 
             List<PostView> postlist = new ArrayList<>();
             TopicView finalView = null;
-            for(int i=1;r.next();i++) {
+            for (int i=1;r.next();i++) {
                 String topicTitle = r.getString("topicTitle");
                 int forumId = r.getInt("forumId");
                 String forumName = r.getString("forumName");
@@ -774,7 +772,7 @@ public class API implements APIProvider {
             ResultSet r = s0.executeQuery();
 
             List<AdvancedForumSummaryView> resultList = new ArrayList<>();
-            while(r.next()) {   
+            while (r.next()) {   
                 int topicId = r.getInt("topicId");
                 int forumId = r.getInt("forumId");
                 String topicTitle = r.getString("topicTitle");
@@ -847,7 +845,7 @@ public class API implements APIProvider {
             ResultSet r = s0.executeQuery();
             AdvancedPersonView finalView = null;
             List<TopicSummaryView> topicList = new ArrayList<>();
-            for(int i = 0;r.next();i++) {   
+            for (int i = 0;r.next();i++) {   
                 int topicId = r.getInt("topicId");
                 int forumId = r.getInt("forumId");
                 String topicTitle = r.getString("topicTitle");
@@ -912,7 +910,7 @@ public class API implements APIProvider {
             ResultSet r = s0.executeQuery();
             AdvancedForumView finalView = null;
             List<TopicSummaryView> topicList = new ArrayList<>();
-            for(int i = 0;r.next();i++) {
+            for (int i = 0;r.next();i++) {
                 int topicId = r.getInt("topicId");
                 int forumId = r.getInt("forumId");
                 String topicTitle = r.getString("topicTitle");
@@ -926,14 +924,14 @@ public class API implements APIProvider {
 
                 // if there is no topic, leave the topliclist empty
                 TopicSummaryView lastTopicView = null;
-                if(topicTitle!=null) {
+                if (topicTitle!=null) {
                     lastTopicView = new TopicSummaryView(topicId,forumId,topicTitle,
                     postCount,created,lastPostTime,lastPostName,likes,creatorName,creatorUserName);
                     topicList.add(lastTopicView);
                 }
 
                 // init in beginning
-                if(i==0) {
+                if (i==0) {
                     String forumTitle = r.getString("forumTitle");
                     finalView = new AdvancedForumView(forumId,forumTitle,topicList);
                 }
