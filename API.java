@@ -70,7 +70,9 @@ public class API implements APIProvider {
             if (r.next()) {   
                 String name = r.getString("name");
                 String stuId = r.getString("stuId");
-                if (stuId == null) stuId = "null";
+                if (stuId == null) {
+                    stuId = "null";
+                }
                 resultview = new PersonView(name,username,stuId);
             }
             s.close();
@@ -142,7 +144,7 @@ public class API implements APIProvider {
 
         // simplified by checkForum method
         Result forumIdCheck = checkForum(-1, title);
-        if (!forumIdCheck.isSuccess()) return forumIdCheck;
+        if (forumIdCheck.isSuccess()) return Result.failure("Forum " + title + " existed");
 
         try {
             PreparedStatement s = c.prepareStatement(
@@ -214,7 +216,9 @@ public class API implements APIProvider {
     public Result<ForumView> getForum(int id) {
         // simplified by checkForum method
         Result forumIdCheck = checkForum(id, null);
-        if (!forumIdCheck.isSuccess()) return forumIdCheck;
+        if (!forumIdCheck.isSuccess()) {
+            return forumIdCheck;
+        }
 
         try {
             PreparedStatement stsvs = c.prepareStatement(
@@ -271,6 +275,10 @@ public class API implements APIProvider {
                 postNumber++;
                 postlist.add(new SimplePostView(postNumber, authorUserName, text, postedAt));
             }
+
+            // 1. Shouldn't the topic checking located at the beginning of this method?
+            // 2. If the issue 1 solved, should we get the topicTitle by JOIN topic in the first statement?
+            //     Or maybe someone think JOIN is probably more time consuming than java code below?
             PreparedStatement stvs = c.prepareStatement(
                 "SELECT topicId, title FROM Topic WHERE topicId = ?"
             );
@@ -343,7 +351,7 @@ public class API implements APIProvider {
         }
 
         // topicId checking
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = checkTopic(topicId, null);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
 
         // fetch userId and check
@@ -394,12 +402,23 @@ public class API implements APIProvider {
         return Result.success(userId);
     }
 
-    private Result checkTopicId(int topicId) {
+    private Result checkTopic(int id, String title) {
+        String stmt;
+        if (title != null){
+            stmt = "SELECT * FROM Topic t JOIN Forum f ON t.forumId = f.id WHERE forumId = ? AND t.title = ?";
+        }
+        else{
+            stmt = "SELECT * FROM Topic WHERE topicId = ?";
+        }
         try {
-            PreparedStatement s0 = c.prepareStatement(
-               "SELECT * FROM Topic WHERE topicId = ?"
-            );
-            s0.setInt(1,topicId);
+            PreparedStatement s0 = c.prepareStatement(stmt);
+            if (title != null) {
+                s0.setInt(1,id);
+                s0.setString(2, title);
+            }
+            else {
+                s0.setInt(1,id);
+            }
             ResultSet r = s0.executeQuery();
             if (r.next())
                 return Result.success();
@@ -444,6 +463,10 @@ public class API implements APIProvider {
         // forumId checking
         Result forumIdCheck = checkForum(forumId, null);
         if (!forumIdCheck.isSuccess()) return forumIdCheck;
+
+        // topic title checking
+        Result topicTitleCheck = checkTopic(forumId, title);
+        if (topicTitleCheck.isSuccess()) return Result.failure("Topic " + title + " in current forum" + " existed");
 
         //fetch userId and checking
         Result<Integer> userIdResult = getUserId(username);
@@ -518,7 +541,7 @@ public class API implements APIProvider {
             return Result.failure("username can not be null");
 
         // check topicId
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = checkTopic(topicId, null);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
 
         // get user's id and check
@@ -581,7 +604,7 @@ public class API implements APIProvider {
             return Result.failure("postNumber should be bigger than or equal to one");
 
         // check topicId
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = checkTopic(topicId, null);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
 
         // get user's id and check
@@ -658,7 +681,7 @@ public class API implements APIProvider {
     @Override
     public Result<List<PersonView>> getLikers(int topicId) {
         // check whether topicId exists
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = checkTopic(topicId, null);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
 
         try {
@@ -689,7 +712,7 @@ public class API implements APIProvider {
     @Override
     public Result<TopicView> getTopic(int topicId) {
         //topicId checking existance
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = checkTopic(topicId, null);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
 
         try {
