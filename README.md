@@ -1,6 +1,8 @@
 # LalalaDB_Java
 
 # Latest Comments:
+I've already partly finished the __GroupReport__, please check the your __Google Drive__ share folder! --Zhaozhang Li
+
 getSimpleForums() and createForum() is finished.
 Minor format fixes
 (There are still some points I have doubts, but I don't know if I should fix all of them in my style and in my branch).3)  
