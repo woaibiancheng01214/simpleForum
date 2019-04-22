@@ -1,5 +1,5 @@
 # LalalaDB_Java
-when editting your own branch,
+when editting your own branch,   
 keep an eye on the main branch, as there maybe some crucial bug fix
 
 # Latest Comments:
