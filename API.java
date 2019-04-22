@@ -754,7 +754,7 @@ public class API implements APIProvider {
             while(r.next()){
                 String name = r.getString("name");
                 String stuId = r.getString("stuId");
-                if (stuId == null) stuId = "null";
+                if (stuId == null) stuId = "";
                 String username = r.getString("username");
                 PersonView resultview = new PersonView(name,username,stuId);
                 resultlist.add(resultview);
