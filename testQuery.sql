@@ -154,15 +154,15 @@ WHERE Topic.topicId = 12 GROUP BY Post.postId ORDER BY postedAt ASC;
   ( SELECT author.id, COUNT(PersonLikePost.id) AS postLikes
     FROM Post JOIN Person author ON author.id = Post.authorId
     LEFT JOIN PersonlikePost ON Post.postId = PersonLikePost.postId
-    WHERE author.username = 'dd5'
+    WHERE author.username = 'ab12345'
   )  AS e ON e.id = Person.id
   LEFT JOIN
   ( SELECT creator.id, COUNT(PersonLikeTopic.id) AS topicLikes
     FROM Topic JOIN Person creator ON creator.id = Topic.creatorId
     LEFT JOIN PersonlikeTopic ON Topic.topicId = PersonLikeTopic.topicId
-    WHERE creator.username = 'dd5'
+    WHERE creator.username = 'ab12345'
   ) AS c ON c.id = Person.id
-  WHERE (Post.postedAt = a.latest OR Topic.topicId IS NULL) AND Person.username = 'dd5'
+  WHERE (Post.postedAt = a.latest OR Topic.topicId IS NULL) AND Person.username = 'ab12345'
   GROUP BY Person.id, Topic.topicId;
 
   -- AdvancedForumView
