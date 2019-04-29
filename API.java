@@ -176,7 +176,7 @@ public class API implements APIProvider {
             "( SELECT topic.forumId, MAX(postId) as latest " +
             " FROM forum JOIN topic ON forum.id = topic.forumId "+
             " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
-            "ON a.forumId = b.forumId AND a.postedAt = b.latest GROUP BY a.forumId";
+            "ON a.forumId = b.forumId AND a.postId = b.latest GROUP BY a.forumId";
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             ResultSet r1 = s1.executeQuery();
             while (r1.next()) {
