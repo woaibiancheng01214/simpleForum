@@ -971,4 +971,20 @@ public class API implements APIProvider {
            return Result.fatal(e.getMessage());
       }
     }
+
+    // Check the username (username != null)
+    private Result checkUsername(String username) {
+        String stmt = "SELECT * FROM Person WHERE username = ? ";
+        try (PreparedStatement s0 = c.prepareStatement(stmt)){
+            s0.setString(1, username);
+            ResultSet r = s0.executeQuery();
+            if (r.next())
+                return Result.success();
+            else
+                return Result.failure("There is no such person");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+    }
+    
 }
