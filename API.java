@@ -58,6 +58,7 @@ public class API implements APIProvider {
         return Result.success(map);
     }
 
+//failure case not existing
     @Override
     public Result<PersonView> getPersonView(String username) {
         PersonView resultview = null;
@@ -83,6 +84,7 @@ public class API implements APIProvider {
     }
 
     // havn't and need to judge the input parameters
+    // query username check faliure
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
         try {
@@ -163,7 +165,7 @@ public class API implements APIProvider {
     }
 
     /* A.3 */
-
+// timing order by id (autp incre) or in mille seconds
     @Override
     public Result<List<ForumSummaryView>> getForums() {
         List<ForumSummaryView> resultView = new ArrayList<>();
