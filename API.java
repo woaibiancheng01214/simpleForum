@@ -58,10 +58,11 @@ public class API implements APIProvider {
 //failure case not existing
     @Override
     public Result<PersonView> getPersonView(String username) {
-        if (username == null) return Result.failure("Username can not be null.");
+        if (username == null) 
+            return Result.failure("Username can not be null.");
         Result usernameCheck = getUserId(username);
-        if (!usernameCheck.isSuccess()) return usernameCheck;
-        
+        if (!usernameCheck.isSuccess()) 
+            return usernameCheck;
 
         PersonView resultview = null;
         String q = "SELECT name, username, stuId FROM Person WHERE username = ? ";
@@ -71,9 +72,9 @@ public class API implements APIProvider {
             if (r.next()) {
                 String name = r.getString("name");
                 String stuId = r.getString("stuId");
-                if (stuId == null) {
+                if (stuId == null) 
                     stuId = "";
-                }
+
                 resultview = new PersonView(name,username,stuId);
             }
         } catch (SQLException e) {
@@ -84,12 +85,15 @@ public class API implements APIProvider {
 
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        if (username == null) return Result.failure("Username can not be null.");
+        if (username == null) 
+            return Result.failure("Username can not be null.");
         // found existing username, return failre
         // sql fatal error, return fatal
         Result usernameCheck = getUserId(username);
-        if (usernameCheck.isSuccess()) return Result.failure("Username already exists");
-        else if (usernameCheck.isFatal()) return usernameCheck;
+        if (usernameCheck.isSuccess()) 
+            return Result.failure("Username already exists");
+        else if (usernameCheck.isFatal()) 
+            return usernameCheck;
         
         String q = "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -104,6 +108,7 @@ public class API implements APIProvider {
         return Result.success();
     }
 
+    // try to return to last commit if sqlexception happens
     private Result tryRollback(SQLException e) {
         try {
             c.rollback();
@@ -117,7 +122,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<SimpleForumSummaryView>> getSimpleForums() {
-        String q = "SELECT id, title FROM Forum";
+        String q = "SELECT id, title FROM Forum ORDER BY title ASC";
         try (PreparedStatement s = c.prepareStatement(q)) {
             List<SimpleForumSummaryView> list = new ArrayList<SimpleForumSummaryView>();
             SimpleForumSummaryView simpleForumSummaryView = null;
@@ -136,17 +141,16 @@ public class API implements APIProvider {
 
     @Override
     public Result createForum(String title) {
-        if (title == null) {
+        if (title == null)
             return Result.failure("Forum title can not be NULL!");
-        }
-        if (title.equals("")) {
+        if (title.equals(""))
             return Result.failure("Forum title can not be empty!");
-        }
 
         // simplified by checkForum method
         // parameter of checkForum should be optimized to meaningful data
         Result forumIdCheck = checkForum(-1, title);
-        if (forumIdCheck.isSuccess()) return Result.failure("Forum " + title + " existed");
+        if (forumIdCheck.isSuccess()) 
+            return Result.failure("Forum " + title + " existed");
 
         String q = "INSERT INTO Forum (title) VALUES (?)";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -168,17 +172,16 @@ public class API implements APIProvider {
         // find (forumId,lastTopicView) pairs
         // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
         Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
-        String q1 =
-            "SELECT topicId, a.forumId as forumId, topicTitle " +
-            "FROM " +
-            " ( SELECT topic.topicId, topic.forumId, topic.title as topicTitle, post.postId " +
-            " FROM forum JOIN topic ON forum.id = topic.forumId " +
-            "   JOIN post ON topic.topicId = post.topicId ) AS a " +
-            "JOIN " +
-            "( SELECT topic.forumId, MAX(postId) as latest " +
-            " FROM forum JOIN topic ON forum.id = topic.forumId "+
-            " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
-            "ON a.forumId = b.forumId AND a.postId = b.latest GROUP BY a.forumId";
+        String q1 = "SELECT topicId, a.forumId as forumId, topicTitle " +
+                    "FROM " +
+                    " ( SELECT topic.topicId, topic.forumId, topic.title as topicTitle, post.postId " +
+                    " FROM forum JOIN topic ON forum.id = topic.forumId " +
+                    "   JOIN post ON topic.topicId = post.topicId ) AS a " +
+                    "JOIN " +
+                    "( SELECT topic.forumId, MAX(postId) as latest " +
+                    " FROM forum JOIN topic ON forum.id = topic.forumId "+
+                    " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
+                    "ON a.forumId = b.forumId AND a.postId = b.latest GROUP BY a.forumId";
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             ResultSet r1 = s1.executeQuery();
             while (r1.next()) {
@@ -215,39 +218,27 @@ public class API implements APIProvider {
     public Result<ForumView> getForum(int id) {
         // simplified by checkForum method
         Result forumIdCheck = checkForum(id, null);
-        if (!forumIdCheck.isSuccess()) {
+        if (!forumIdCheck.isSuccess())
             return forumIdCheck;
-        }
 
         List<SimpleTopicSummaryView> topiclist;
-        String q1 =
-            "SELECT topicId, forumId, title FROM Topic " +
-            "WHERE forumId = ? ORDER BY title ASC";
+        String q1 = "SELECT topicId, forumId, Topic.title, Forum.title AS forumTitle FROM Topic " +
+                    "INNER JOIN Forum ON Topic.forumId = Forum.id " +
+                    "WHERE forumId = ? ORDER BY Topic.title ASC";
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             s1.setInt(1, id);
             ResultSet r1 = s1.executeQuery();
             topiclist = new ArrayList<SimpleTopicSummaryView>();
-            while (r1.next()) {
-                int topicid = r1.getInt("topicId");
-                String topictitle = r1.getString("title");
-                topiclist.add(new SimpleTopicSummaryView(topicid, id, topictitle));
+            String forumTitle = "";
+            if(r1.next()) {
+                forumTitle = r1.getString("forumTitle");
+                do {
+                    int topicid = r1.getInt("topicId");
+                    String topictitle = r1.getString("title");
+                    topiclist.add(new SimpleTopicSummaryView(topicid, id, topictitle));
+                } while (r1.next());
             }
-        } catch (SQLException e) {
-            return Result.fatal(e.getMessage());
-        }
-
-        String q2 = "SELECT * FROM Forum WHERE id = ?";
-        try (PreparedStatement s2 = c.prepareStatement(q2)) {
-            // should be simplified by JOIN a forum table in the above query(stsvs) and then get the
-            // forum title from joined table or just leave this query here for efficiency(avoid join)?
-            // same question for getSimpleTopic!!!
-            ForumView resultview = null;
-            s2.setInt(1, id);
-            ResultSet r2 = s2.executeQuery();
-            while (r2.next()) {
-                String forumtitle = r2.getString("title");
-                resultview = new ForumView(id, forumtitle, topiclist);
-            }
+            ForumView resultview = new ForumView(id, forumTitle, topiclist);
             return Result.success(resultview);
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
@@ -257,67 +248,57 @@ public class API implements APIProvider {
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
         Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) return topicIdCheck;
+        if (!topicIdCheck.isSuccess()) 
+            return topicIdCheck;
 
         SimpleTopicView resultview = null;
         List<SimplePostView> postlist;
-        String q1 =
-            "SELECT topicId, Person.name AS authorUserName, " +
-            "   text, postedAt FROM Post " +
-            "INNER JOIN Person ON Post.authorId = Person.Id " +
-            "WHERE topicId = ? ORDER BY Post.postedAt ASC";
+        String q1 = "SELECT Topic.topicId, Person.name AS authorUserName, " +
+                    "   text, postedAt, Topic.title AS topicTitle FROM Post " +
+                    "INNER JOIN Person ON Post.authorId = Person.Id " +
+                    "INNER JOIN Topic ON Post.topicId = Topic.topicId " +
+                    "WHERE Topic.topicId = ? ORDER BY Post.postedAt ASC";
 
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             s1.setInt(1, topicId);
             ResultSet r1 = s1.executeQuery();
             postlist = new ArrayList<SimplePostView>();
             int postNumber = 0;
-            while (r1.next()) {
-                String authorUserName = r1.getString("authorUserName");
-                String text = r1.getString("text");
-                String postedAt = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(r1.getTimestamp("postedAt"));
-                postNumber++;
-                postlist.add(new SimplePostView(postNumber, authorUserName, text, postedAt));
+            String topicTitle = "";
+            if(r1.next()){
+                topicTitle = r1.getString("topicTitle");
+                do {
+                    String authorUserName = r1.getString("authorUserName");
+                    String text = r1.getString("text");
+                    String postedAt = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(r1.getTimestamp("postedAt"));
+                    postNumber++;
+                    postlist.add(new SimplePostView(postNumber, authorUserName, text, postedAt));
+                } while (r1.next());
             }
+            resultview = new SimpleTopicView(topicId, topicTitle, postlist);
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
 
-        String q2 = "SELECT topicId, title FROM Topic WHERE topicId = ?";
-        try (PreparedStatement s2 = c.prepareStatement(q2);) {
-            // 1. Shouldn't the topic checking located at the beginning of this method?
-            // 2. If the issue 1 solved, should we get the topicTitle by JOIN topic in the first statement?
-            //     Or maybe someone think JOIN is probably more time consuming than java code below?
-            s2.setInt(1, topicId);
-            ResultSet r2 = s2.executeQuery();
-            while (r2.next()) {
-                String title = r2.getString("title");
-                resultview = new SimpleTopicView(topicId, title, postlist);
-            }
-
-        } catch (SQLException e) {
-            return Result.fatal(e.getMessage());
-        }
         return Result.success(resultview);
     }
 
     @Override
     public Result<PostView> getLatestPost(int topicId) {
         PostView resultView = null;
-        String q =
-            "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
-            "   Person.username AS authorUserName, text, postedAt, COUNT(*) AS postNumber, " +
-            "   postLike.likes AS likes" +
-            "FROM Topic " +
-            "INNER JOIN Post ON Topic.topicId = Post.topicId " +
-            "INNER JOIN Person ON Post.authorId = Person.id " +
-            "LEFT JOIN" +
-            "   (SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post " +
-            "   INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId " +
-            "   )AS postLike ON postLike.postId = Post.postId " +
-            "WHERE Topic.topicId = ? " +
-            "ORDER BY postedAt DESC " +
-            "LIMIT 1";
+        String q = "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
+                    "   Person.username AS authorUserName, text, postedAt, COUNT(*) AS postNumber, " +
+                    "   postLike.likes AS likes" +
+                    "FROM Topic " +
+                    "INNER JOIN Post ON Topic.topicId = Post.topicId " +
+                    "INNER JOIN Person ON Post.authorId = Person.id " +
+                    "LEFT JOIN" +
+                    "   (SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post " +
+                    "   INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId " +
+                    "   )AS postLike ON postLike.postId = Post.postId " +
+                    "WHERE Topic.topicId = ? " +
+                    "ORDER BY postedAt DESC " +
+                    "LIMIT 1";
 
         try (PreparedStatement s = c.prepareStatement(q)) {
             ResultSet r = s.executeQuery();
@@ -341,28 +322,27 @@ public class API implements APIProvider {
 
     @Override
     public Result createPost(int topicId, String username, String text) {
-        if (username == null || text == null) {
+        if (username == null || text == null)
             return Result.failure("username or text can not be NULL!");
-        }
 
-        if (username.equals("") || text.equals("")) {
+        if (username.equals("") || text.equals(""))
             return Result.failure("Author's username or Post's text can not be empty!");
-        }
 
         // topicId checking
         Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) return topicIdCheck;
+        if (!topicIdCheck.isSuccess()) 
+            return topicIdCheck;
 
         // fetch userId and check
         Result<Integer> userIdResult = getUserId(username);
-        if (!userIdResult.isSuccess()) {
+        if (!userIdResult.isSuccess())
            return userIdResult;
-        }
 
         int authorId = userIdResult.getValue().intValue();
         return createPostFromUserId(topicId,authorId,text);
     }
 
+    // split createPost to two seperate tasks (parameter check and query execution)
     private Result createPostFromUserId(int topicId, int authorId, String text) {
       // everything is already checked in previous function
       String q = "INSERT INTO Post (topicId,text,authorId) VALUES ( ? , ? ,? )";
@@ -385,9 +365,8 @@ public class API implements APIProvider {
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setString(1,username);
             ResultSet r = s.executeQuery();
-            if (r.next()) {
+            if (r.next()) 
                userId = Integer.valueOf(r.getInt("id"));
-            }
             else
                 return Result.failure("There is no such username");
         } catch (SQLException e) {
@@ -398,12 +377,11 @@ public class API implements APIProvider {
 
     private Result checkTopic(int id, String title) {
         String q;
-        if (title != null){
+        if (title != null)
             q = "SELECT * FROM Topic t JOIN Forum f ON t.forumId = f.id WHERE forumId = ? AND t.title = ?";
-        }
-        else{
+        else
             q = "SELECT * FROM Topic WHERE topicId = ?";
-        }
+
         try (PreparedStatement s = c.prepareStatement(q)) {
             if (title != null) {
                 s.setInt(1,id);
@@ -412,6 +390,7 @@ public class API implements APIProvider {
             else {
                 s.setInt(1,id);
             }
+
             ResultSet r = s.executeQuery();
             if (r.next())
                 return Result.success();
@@ -424,15 +403,16 @@ public class API implements APIProvider {
 
     private Result checkForum(int forumId, String title) {
         String q;
-        if (title != null){
+        if (title != null)
             q = "SELECT * FROM Forum WHERE title = ?";
-        }
-        else{
+        else
             q = "SELECT * FROM Forum WHERE id = ?";
-        }
+
         try (PreparedStatement s = c.prepareStatement(q)) {
-            if (title != null) s.setString(1, title);
-            else s.setInt(1,forumId);
+            if (title != null) 
+                s.setString(1, title);
+            else 
+                s.setInt(1,forumId);
             ResultSet r = s.executeQuery();
             if (r.next())
                 return Result.success();
@@ -445,17 +425,17 @@ public class API implements APIProvider {
 
     @Override
     public Result createTopic(int forumId, String username, String title, String text) {
-        if (username == null || text == null || title == null) {
+        if (username == null || text == null || title == null)
             return Result.failure("username or text or topic title can not be NULL!");
-        }
-        if (username.equals("") || text.equals("") || title.equals("")) {
+        if (username.equals("") || text.equals("") || title.equals(""))
             return Result.failure("Author's username or initial Post's text or topic's title can not be empty!");
-        }
 
         // forumId checking
         Result forumIdCheck = checkForum(forumId, null);
-        if (!forumIdCheck.isSuccess()) return forumIdCheck;
+        if (!forumIdCheck.isSuccess()) 
+            return forumIdCheck;
 
+        // jiayi insist to save this functionality
         // ***** topic title checking(assuming forum has unique topics)
         // ***** this is a not a offcial feature in the documentation of Davaid
         //Result topicTitleCheck = checkTopic(forumId, title);
@@ -463,7 +443,8 @@ public class API implements APIProvider {
 
         //fetch userId and checking
         Result<Integer> userIdResult = getUserId(username);
-        if (!userIdResult.isSuccess()) return userIdResult;
+        if (!userIdResult.isSuccess()) 
+            return userIdResult;
 
         String q1 = "INSERT INTO Topic (forumId, title, creatorId) VALUES (? ,? , ?) ";
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
@@ -493,7 +474,8 @@ public class API implements APIProvider {
 
             // using function createPostFromUserId() to save one getUserId query
             Result firstPostResult = createPostFromUserId(topicId,creatorId,text);
-            if (!firstPostResult.isSuccess()) return firstPostResult;
+            if (!firstPostResult.isSuccess()) 
+                return firstPostResult;
 
         } catch (SQLException e) {
             return tryRollback(e);
@@ -545,12 +527,16 @@ public class API implements APIProvider {
             // situation judge
             // if already like/unlike still return success as instructed
             if (r.next()) {
-                if (!like) result = updateLikeTopic(userId,topicId,"delete");
-                else result = Result.success();
+                if (!like)
+                    result = updateLikeTopic(userId,topicId,"delete");
+                else
+                    result = Result.success();
             }
             else {
-                if (!like) result = Result.success();
-                else result = updateLikeTopic(userId,topicId,"add");
+                if (!like)
+                    result = Result.success();
+                else
+                    result = updateLikeTopic(userId,topicId,"add");
             }
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
@@ -587,11 +573,13 @@ public class API implements APIProvider {
 
         // check topicId
         Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) return topicIdCheck;
+        if (!topicIdCheck.isSuccess())
+            return topicIdCheck;
 
         // get user's id and check
         Result<Integer> userIdResult = getUserId(username);
-        if (!userIdResult.isSuccess()) return userIdResult;
+        if (!userIdResult.isSuccess())
+            return userIdResult;
 
         Result result = null;
         int userId = userIdResult.getValue().intValue();
@@ -599,13 +587,15 @@ public class API implements APIProvider {
 
         //get postId
         String q1 = " SELECT postId FROM Topic JOIN Post ON Topic.topicId = Post.topicId " +
-        " WHERE Topic.topicId = ? ORDER BY Post.postedAt ASC LIMIT ?,1 ";
+                    " WHERE Topic.topicId = ? ORDER BY Post.postedAt ASC LIMIT ?,1 ";
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             s1.setInt(1,topicId);
             s1.setInt(2,post-1);
             ResultSet r = s1.executeQuery();
-            if (r.next()) postId = r.getInt("postId");
-            else return Result.failure("this post doesn't exit");
+            if (r.next())
+                postId = r.getInt("postId");
+            else
+                return Result.failure("this post doesn't exit");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
@@ -620,12 +610,16 @@ public class API implements APIProvider {
             // situation judge
             // if already like/unlike still return success as instructed
             if (r.next()) {
-                if (!like) result = updateLikePost(userId,postId,"delete");
-                else result = Result.success();
+                if (!like) 
+                    result = updateLikePost(userId,postId,"delete");
+                else 
+                    result = Result.success();
             }
             else {
-                if (!like) result = Result.success();
-                else result = updateLikePost(userId,postId,"add");
+                if (!like) 
+                    result = Result.success();
+                else 
+                    result = updateLikePost(userId,postId,"add");
             }
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
@@ -658,11 +652,12 @@ public class API implements APIProvider {
     public Result<List<PersonView>> getLikers(int topicId) {
         // check whether topicId exists
         Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) return topicIdCheck;
+        if (!topicIdCheck.isSuccess()) 
+            return topicIdCheck;
 
-        String q = " SELECT * FROM PersonLikeTopic " +
-        " JOIN Person ON PersonLikeTopic.id = Person.id " +
-        " WHERE topicId = ? ";
+        String q =  " SELECT * FROM PersonLikeTopic " +
+                    " JOIN Person ON PersonLikeTopic.id = Person.id " +
+                    " WHERE topicId = ? ORDER BY Person.name ASC";
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setInt(1,topicId);
             ResultSet r = s.executeQuery();
@@ -673,8 +668,8 @@ public class API implements APIProvider {
                 String name = r.getString("name");
                 String stuId = r.getString("stuId");
                 if (stuId == null)
-                {   stuId = "";
-                }
+                    stuId = "";
+                
                 String username = r.getString("username");
                 PersonView resultview = new PersonView(name,username,stuId);
                 resultlist.add(resultview);
@@ -689,18 +684,19 @@ public class API implements APIProvider {
     public Result<TopicView> getTopic(int topicId) {
         //topicId checking existance
         Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) return topicIdCheck;
+        if (!topicIdCheck.isSuccess()) 
+            return topicIdCheck;
 
-        String q = "SELECT Topic.topicId AS topicId, Topic.title AS topicTitle, " +
-        "   Forum.id AS forumId, Forum.title AS forumName, Post.text AS postText, " +
-        "   Person.name AS authorName, Person.username AS authorUserName, " +
-        "   COUNT(PersonLikePost.id) AS likes, postedAt " +
-        "FROM Topic " +
-        "JOIN Forum ON Topic.forumId = Forum.id " +
-        "JOIN Post ON Topic.topicId = Post.topicId "+
-        "JOIN Person ON Person.id = Post.authorId "+
-        "LEFT JOIN PersonLikePost ON Post.postId = PersonLikePost.postId "+
-        "WHERE Topic.topicId = ? GROUP BY Post.postId ORDER BY postedAt ASC";
+        String q =  "SELECT Topic.topicId AS topicId, Topic.title AS topicTitle, " +
+                    "   Forum.id AS forumId, Forum.title AS forumName, Post.text AS postText, " +
+                    "   Person.name AS authorName, Person.username AS authorUserName, " +
+                    "   COUNT(PersonLikePost.id) AS likes, postedAt " +
+                    "FROM Topic " +
+                    "JOIN Forum ON Topic.forumId = Forum.id " +
+                    "JOIN Post ON Topic.topicId = Post.topicId "+
+                    "JOIN Person ON Person.id = Post.authorId "+
+                    "LEFT JOIN PersonLikePost ON Post.postId = PersonLikePost.postId "+
+                    "WHERE Topic.topicId = ? GROUP BY Post.postId ORDER BY postedAt ASC";
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setInt(1,topicId);
             ResultSet r = s.executeQuery();
@@ -723,9 +719,8 @@ public class API implements APIProvider {
                 postlist.add(resultview);
 
                 // intialize the topicview at first, only once
-                if (i==1) {
+                if (i==1)
                     finalView = new TopicView(forumId,topicId,forumName,topicTitle,postlist);
-                }
             }
 
             // as we have checked topicId exits, sth. else must be wrong in the database
@@ -742,27 +737,27 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<AdvancedForumSummaryView>> getAdvancedForums() {
-        String q = " SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle, " +
-        "   Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime, " +
-        "   author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName" +
-        " FROM Forum" +
-        " LEFT JOIN Topic ON Topic.forumId = Forum.id " +
-        " LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-        " LEFT JOIN Person author ON author.id = authorId " +
-        " LEFT JOIN Person creator ON creator.id = creatorId " +
-        " LEFT JOIN " +
-        "   ( SELECT Forum.id AS forumId, MAX(postId) AS latest FROM Forum " +
-        "   LEFT JOIN Topic ON Topic.forumId = Forum.id " +
-        "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-        "   GROUP BY Forum.id ) AS a ON a.forumId = Forum.id " +
-        " LEFT JOIN " +
-        "   (SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post " +
-        "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId " +
-        "   ) AS c ON Topic.topicId = c.topicId " +
-        " LEFT JOIN " +
-        "   (SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
-        "   ) AS b ON Topic.topicId = b.topicId " +
-        " WHERE Post.postId = a.latest OR Topic.topicId IS NULL ORDER BY forumTitle ";
+        String q =  " SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle, " +
+                    "   Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime, " +
+                    "   author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName" +
+                    " FROM Forum" +
+                    " LEFT JOIN Topic ON Topic.forumId = Forum.id " +
+                    " LEFT JOIN Post ON Topic.topicId = Post.topicId " +
+                    " LEFT JOIN Person author ON author.id = authorId " +
+                    " LEFT JOIN Person creator ON creator.id = creatorId " +
+                    " LEFT JOIN " +
+                    "   ( SELECT Forum.id AS forumId, MAX(postId) AS latest FROM Forum " +
+                    "   LEFT JOIN Topic ON Topic.forumId = Forum.id " +
+                    "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
+                    "   GROUP BY Forum.id ) AS a ON a.forumId = Forum.id " +
+                    " LEFT JOIN " +
+                    "   (SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post " +
+                    "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId " +
+                    "   ) AS c ON Topic.topicId = c.topicId " +
+                    " LEFT JOIN " +
+                    "   (SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
+                    "   ) AS b ON Topic.topicId = b.topicId " +
+                    " WHERE Post.postId = a.latest OR Topic.topicId IS NULL ORDER BY forumTitle ";
         try (PreparedStatement s = c.prepareStatement(q)) {
             ResultSet r = s.executeQuery();
 
@@ -796,41 +791,41 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedPersonView> getAdvancedPersonView(String username) {
-        String q = " SELECT Person.name, Person.username, Person.stuId, topicLikes, postLikes," +
-        "   Topic.topicId, Topic.forumId, Topic.title AS topicTitle, postCount, created," +
-        "   Post.postedAt as lastPostTime, author.name AS lastPostName, likes," +
-        "   creator.name AS creatorName, creator.username AS creatorUserName" +
-        " FROM Person " +
-        " LEFT JOIN PersonLikeTopic ON Person.id = PersonLikeTopic.id" +
-        " LEFT JOIN Topic ON PersonLikeTopic.topicId = Topic.topicId" +
-        " LEFT JOIN Post ON Topic.topicId = Post.topicId" +
-        " LEFT JOIN Person author ON author.id = Post.authorId" +
-        " LEFT JOIN Person creator ON creator.id = Topic.creatorId" +
-        " LEFT JOIN" +
-        "   ( SELECT Topic.topicId AS topicId, MAX(postId) AS latest FROM Topic" +
-        "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-        "   GROUP BY Topic.topicId ) AS a ON a.topicId = Topic.topicId" +
-        " LEFT JOIN" +
-        "   ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post" +
-        "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId" +
-        "   ) AS b ON Topic.topicId = b.topicId" +
-        " LEFT JOIN" +
-        "   ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
-        "   ) AS d ON Topic.topicId = d.topicId" +
-        " LEFT JOIN" +
-        "   ( SELECT author.id, COUNT(PersonLikePost.id) AS postLikes" +
-        "   FROM Post JOIN Person author ON author.id = Post.authorId" +
-        "   LEFT JOIN PersonlikePost ON Post.postId = PersonLikePost.postId" +
-        "   WHERE author.username = ?" +
-        "   )  AS e ON e.id = Person.id"+
-        " LEFT JOIN"+
-        "   ( SELECT creator.id, COUNT(PersonLikeTopic.id) AS topicLikes"+
-        "   FROM Topic JOIN Person creator ON creator.id = Topic.creatorId"+
-        "   LEFT JOIN PersonlikeTopic ON Topic.topicId = PersonLikeTopic.topicId"+
-        "   WHERE creator.username = ? "+
-        "   ) AS c ON c.id = Person.id"+
-        " WHERE (Post.postId = a.latest OR Topic.topicId IS NULL) AND Person.username = ? "+
-        " GROUP BY Person.id, Topic.topicId";
+        String q =  " SELECT Person.name, Person.username, Person.stuId, topicLikes, postLikes," +
+                    "   Topic.topicId, Topic.forumId, Topic.title AS topicTitle, postCount, created," +
+                    "   Post.postedAt as lastPostTime, author.name AS lastPostName, likes," +
+                    "   creator.name AS creatorName, creator.username AS creatorUserName" +
+                    " FROM Person " +
+                    " LEFT JOIN PersonLikeTopic ON Person.id = PersonLikeTopic.id" +
+                    " LEFT JOIN Topic ON PersonLikeTopic.topicId = Topic.topicId" +
+                    " LEFT JOIN Post ON Topic.topicId = Post.topicId" +
+                    " LEFT JOIN Person author ON author.id = Post.authorId" +
+                    " LEFT JOIN Person creator ON creator.id = Topic.creatorId" +
+                    " LEFT JOIN" +
+                    "   ( SELECT Topic.topicId AS topicId, MAX(postId) AS latest FROM Topic" +
+                    "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
+                    "   GROUP BY Topic.topicId ) AS a ON a.topicId = Topic.topicId" +
+                    " LEFT JOIN" +
+                    "   ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post" +
+                    "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId" +
+                    "   ) AS b ON Topic.topicId = b.topicId" +
+                    " LEFT JOIN" +
+                    "   ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
+                    "   ) AS d ON Topic.topicId = d.topicId" +
+                    " LEFT JOIN" +
+                    "   ( SELECT author.id, COUNT(PersonLikePost.id) AS postLikes" +
+                    "   FROM Post JOIN Person author ON author.id = Post.authorId" +
+                    "   LEFT JOIN PersonlikePost ON Post.postId = PersonLikePost.postId" +
+                    "   WHERE author.username = ?" +
+                    "   )  AS e ON e.id = Person.id"+
+                    " LEFT JOIN"+
+                    "   ( SELECT creator.id, COUNT(PersonLikeTopic.id) AS topicLikes"+
+                    "   FROM Topic JOIN Person creator ON creator.id = Topic.creatorId"+
+                    "   LEFT JOIN PersonlikeTopic ON Topic.topicId = PersonLikeTopic.topicId"+
+                    "   WHERE creator.username = ? "+
+                    "   ) AS c ON c.id = Person.id"+
+                    " WHERE (Post.postId = a.latest OR Topic.topicId IS NULL) AND Person.username = ? "+
+                    " GROUP BY Person.id, Topic.topicId";
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setString(1,username);
             s.setString(2,username);
@@ -861,9 +856,8 @@ public class API implements APIProvider {
                 if (i==0) {
                     String name = r.getString("name");
                     String stuId = r.getString("stuId");
-                    if(stuId == null){
+                    if(stuId == null)
                        stuId = "";
-                    }
                     int topicLikes = r.getInt("topicLikes");
                     int postLikes = r.getInt("postLikes");
                     finalView = new AdvancedPersonView(name,username,stuId,topicLikes,
@@ -878,27 +872,27 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedForumView> getAdvancedForum(int id) {
-      String q = " SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle, " +
-      "   Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime, " +
-      "   author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName" +
-      " FROM Forum" +
-      " LEFT JOIN Topic ON Topic.forumId = Forum.id " +
-      " LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-      " LEFT JOIN Person author ON author.id = authorId " +
-      " LEFT JOIN Person creator ON creator.id = creatorId " +
-      " LEFT JOIN " +
-      "   ( SELECT Topic.topicId as topicId, MAX(postId) AS latest FROM Forum " +
-      "   LEFT JOIN Topic ON Topic.forumId = Forum.id " +
-      "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-      "   GROUP BY Forum.id,Topic.topicId ) AS a ON a.topicId = Topic.topicId " +
-      " LEFT JOIN " +
-      "   ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post " +
-      "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId " +
-      "   ) AS c ON Topic.topicId = c.topicId " +
-      " LEFT JOIN " +
-      "   ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
-      "   ) AS b ON Topic.topicId = b.topicId " +
-      " WHERE (Post.postId = a.latest OR Topic.topicId IS NULL) AND Forum.id=?  ORDER BY forumTitle ";
+        String q =  " SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle, " +
+                    "   Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime, " +
+                    "   author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName" +
+                    " FROM Forum" +
+                    " LEFT JOIN Topic ON Topic.forumId = Forum.id " +
+                    " LEFT JOIN Post ON Topic.topicId = Post.topicId " +
+                    " LEFT JOIN Person author ON author.id = authorId " +
+                    " LEFT JOIN Person creator ON creator.id = creatorId " +
+                    " LEFT JOIN " +
+                    "   ( SELECT Topic.topicId as topicId, MAX(postId) AS latest FROM Forum " +
+                    "   LEFT JOIN Topic ON Topic.forumId = Forum.id " +
+                    "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
+                    "   GROUP BY Forum.id,Topic.topicId ) AS a ON a.topicId = Topic.topicId " +
+                    " LEFT JOIN " +
+                    "   ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post " +
+                    "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId " +
+                    "   ) AS c ON Topic.topicId = c.topicId " +
+                    " LEFT JOIN " +
+                    "   ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
+                    "   ) AS b ON Topic.topicId = b.topicId " +
+                    " WHERE (Post.postId = a.latest OR Topic.topicId IS NULL) AND Forum.id=?  ORDER BY forumTitle ";
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setInt(1,id);
             ResultSet r = s.executeQuery();
