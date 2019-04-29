@@ -41,17 +41,14 @@ public class API implements APIProvider {
     @Override
     public Result<Map<String, String>> getUsers() {
         Map<String, String> map = new HashMap<String, String>();
-        try {
-            PreparedStatement s = c.prepareStatement(
-                "SELECT username, name FROM Person"
-            );
+        String q = "SELECT username, name FROM Person";
+        try (PreparedStatement s = c.prepareStatement(q)) {
             ResultSet r = s.executeQuery();
             while (r.next()) {
                 String username = r.getString("username");
                 String name = r.getString("name");
                 map.put(username, name);
             }
-            s.close();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
@@ -61,10 +58,8 @@ public class API implements APIProvider {
     @Override
     public Result<PersonView> getPersonView(String username) {
         PersonView resultview = null;
-        try {
-            PreparedStatement s = c.prepareStatement(
-                "SELECT name, username, stuId FROM Person WHERE username = ? "
-            );
+        String q = "SELECT name, username, stuId FROM Person WHERE username = ? ";
+        try (PreparedStatement s = c.prepareStatement(q)) {
             s.setString(1,username);
             ResultSet r = s.executeQuery();
             if (r.next()) {
@@ -75,7 +70,6 @@ public class API implements APIProvider {
                 }
                 resultview = new PersonView(name,username,stuId);
             }
-            s.close();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
@@ -85,15 +79,12 @@ public class API implements APIProvider {
     // havn't and need to judge the input parameters
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        try {
-            PreparedStatement s = c.prepareStatement(
-                "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)"
-            );
+        String q = "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)";
+        try (PreparedStatement s = c.prepareStatement(q)) {
             s.setString(1,name);
             s.setString(2,username);
             s.setString(3,studentId);
             s.executeUpdate();
-            s.close();
             c.commit();
         } catch (SQLException e) {
             return tryRollback(e);
@@ -114,20 +105,17 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<SimpleForumSummaryView>> getSimpleForums() {
-        try {
-            PreparedStatement s = c.prepareStatement(
-                "SELECT id, title FROM Forum"
-            );
+        String q = "SELECT id, title FROM Forum";
+        try (PreparedStatement s = c.prepareStatement(q)) {
             List<SimpleForumSummaryView> list = new ArrayList<SimpleForumSummaryView>();
-            SimpleForumSummaryView sfsv = null;
+            SimpleForumSummaryView simpleForumSummaryView = null;
             ResultSet r = s.executeQuery();
             while (r.next()) {
                 int id = r.getInt("id");
                 String title = r.getString("title");
-                sfsv = new SimpleForumSummaryView(id, title);
-                list.add(sfsv);
+                simpleForumSummaryView = new SimpleForumSummaryView(id, title);
+                list.add(simpleForumSummaryView);
             }
-            s.close();
             return Result.success(list);
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
@@ -144,16 +132,14 @@ public class API implements APIProvider {
         }
 
         // simplified by checkForum method
+        // parameter of checkForum should be optimized to meaningful data
         Result forumIdCheck = checkForum(-1, title);
         if (forumIdCheck.isSuccess()) return Result.failure("Forum " + title + " existed");
 
-        try {
-            PreparedStatement s = c.prepareStatement(
-                "INSERT INTO Forum (title) VALUES (?)"
-            );
+        String q = "INSERT INTO Forum (title) VALUES (?)";
+        try (PreparedStatement s = c.prepareStatement(q)) {
             s.setString(1, title);
             s.executeUpdate();
-            s.close();
             c.commit();
         } catch (SQLException e) {
             return tryRollback(e);
@@ -167,49 +153,49 @@ public class API implements APIProvider {
     @Override
     public Result<List<ForumSummaryView>> getForums() {
         List<ForumSummaryView> resultView = new ArrayList<>();
-        try {
-            // find (forumId,lastTopicView) pairs
-            // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
-            Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
-            PreparedStatement s2 = c.prepareStatement(
-                "SELECT topicId, a.forumId as forumId, topicTitle " +
-                "FROM " +
-                " ( SELECT topic.topicId, topic.forumId, topic.title as topicTitle, post.postedAt " +
-                " FROM forum JOIN topic ON forum.id = topic.forumId " +
-                "   JOIN post ON topic.topicId = post.topicId ) AS a " +
-                "JOIN " +
-                "( SELECT topic.forumId, MAX(postedAt) as latest " +
-                " FROM forum JOIN topic ON forum.id = topic.forumId "+
-                " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
-                "ON a.forumId = b.forumId AND a.postedAt = b.latest GROUP BY a.forumId"
-            );
-            ResultSet r2 = s2.executeQuery();
-            while (r2.next()) {
-                int forumId = r2.getInt("forumId");
-                int topicId = r2.getInt("topicId");
-                String topicTitle = r2.getString("topicTitle");
+        // find (forumId,lastTopicView) pairs
+        // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
+        Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
+        String q1 = 
+            "SELECT topicId, a.forumId as forumId, topicTitle " +
+            "FROM " +
+            " ( SELECT topic.topicId, topic.forumId, topic.title as topicTitle, post.postedAt " +
+            " FROM forum JOIN topic ON forum.id = topic.forumId " +
+            "   JOIN post ON topic.topicId = post.topicId ) AS a " +
+            "JOIN " +
+            "( SELECT topic.forumId, MAX(postedAt) as latest " +
+            " FROM forum JOIN topic ON forum.id = topic.forumId "+
+            " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
+            "ON a.forumId = b.forumId AND a.postedAt = b.latest GROUP BY a.forumId";
+        try (PreparedStatement s1 = c.prepareStatement(q1)) {
+            ResultSet r1 = s1.executeQuery();
+            while (r1.next()) {
+                int forumId = r1.getInt("forumId");
+                int topicId = r1.getInt("topicId");
+                String topicTitle = r1.getString("topicTitle");
                 SimpleTopicSummaryView lastTopic = new SimpleTopicSummaryView(topicId, forumId, topicTitle);
                 forumToTopicMapping.put(forumId,lastTopic);
             }
-            s2.close();
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
 
+        String q2 = "SELECT title, id FROM Forum ORDER BY title ASC";
+        try (PreparedStatement s2 = c.prepareStatement(q2)) {
             // add lastTopic to forumView
-            PreparedStatement s = c.prepareStatement(
-                "SELECT title, id FROM Forum ORDER BY title ASC"
-            );
-            ResultSet r = s.executeQuery();
-            while (r.next()) {
-                int forumId = r.getInt("id");
-                String forumTitle = r.getString("title");
+            ResultSet r2 = s2.executeQuery();
+            while (r2.next()) {
+                int forumId = r2.getInt("id");
+                String forumTitle = r2.getString("title");
                 SimpleTopicSummaryView lastTopic = forumToTopicMapping.get(forumId);
                 // here lastTopic is unchecked so it is allowed to be null
                 ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
                 resultView.add(forumSummaryView);
             }
-            s.close();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
+        
         return Result.success(resultView);
     }
 
@@ -220,35 +206,36 @@ public class API implements APIProvider {
         if (!forumIdCheck.isSuccess()) {
             return forumIdCheck;
         }
-
-        try {
-            PreparedStatement stsvs = c.prepareStatement(
-                "SELECT topicId, forumId, title FROM Topic " +
-                "WHERE forumId = ? ORDER BY title ASC"
-            );
-            stsvs.setInt(1, id);
-            ResultSet stsvr = stsvs.executeQuery();
-            List<SimpleTopicSummaryView> topiclist = new ArrayList<SimpleTopicSummaryView>();
-            while (stsvr.next()) {
-                int topicid = stsvr.getInt("topicId");
-                String topictitle = stsvr.getString("title");
+        
+        List<SimpleTopicSummaryView> topiclist;
+        String q1 = 
+            "SELECT topicId, forumId, title FROM Topic " +
+            "WHERE forumId = ? ORDER BY title ASC";
+        try (PreparedStatement s1 = c.prepareStatement(q1)) {
+            s1.setInt(1, id);
+            ResultSet r1 = s1.executeQuery();
+            topiclist = new ArrayList<SimpleTopicSummaryView>();
+            while (r1.next()) {
+                int topicid = r1.getInt("topicId");
+                String topictitle = r1.getString("title");
                 topiclist.add(new SimpleTopicSummaryView(topicid, id, topictitle));
             }
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+
+        String q2 = "SELECT * FROM Forum WHERE id = ?";
+        try (PreparedStatement s2 = c.prepareStatement(q2)) {
             // should be simplified by JOIN a forum table in the above query(stsvs) and then get the
             // forum title from joined table or just leave this query here for efficiency(avoid join)?
             // same question for getSimpleTopic!!!
-            PreparedStatement fvs = c.prepareStatement(
-                "SELECT * FROM Forum WHERE id = ?"
-            );
             ForumView resultview = null;
-            fvs.setInt(1, id);
-            ResultSet fvr = fvs.executeQuery();
-            while (fvr.next()) {
-                String forumtitle = fvr.getString("title");
+            s2.setInt(1, id);
+            ResultSet r2 = s2.executeQuery();
+            while (r2.next()) {
+                String forumtitle = r2.getString("title");
                 resultview = new ForumView(id, forumtitle, topiclist);
             }
-            stsvs.close();
-            fvs.close();
             return Result.success(resultview);
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
@@ -258,44 +245,46 @@ public class API implements APIProvider {
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
         SimpleTopicView resultview = null;
-        try {
-            PreparedStatement spvs = c.prepareStatement(
-                "SELECT topicId, Person.name AS authorUserName, " +
-                "   text, postedAt FROM Post " +
-                "INNER JOIN Person ON Post.authorId = Person.Id " +
-                "WHERE topicId = ? ORDER BY Post.postedAt ASC"
-            );
-            spvs.setInt(1, topicId);
-            ResultSet spvr = spvs.executeQuery();
-            List<SimplePostView> postlist = new ArrayList<SimplePostView>();
+        List<SimplePostView> postlist;
+        String q1 = 
+            "SELECT topicId, Person.name AS authorUserName, " +
+            "   text, postedAt FROM Post " +
+            "INNER JOIN Person ON Post.authorId = Person.Id " +
+            "WHERE topicId = ? ORDER BY Post.postedAt ASC";
+            
+        try (PreparedStatement s1 = c.prepareStatement(q1)) {
+            s1.setInt(1, topicId);
+            ResultSet r1 = s1.executeQuery();
+            postlist = new ArrayList<SimplePostView>();
             int postNumber = 0;
-            while (spvr.next()) {
-                String authorUserName = spvr.getString("authorUserName");
-                String text = spvr.getString("text");
-                String postedAt = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(spvr.getTimestamp("postedAt"));
+            while (r1.next()) {
+                String authorUserName = r1.getString("authorUserName");
+                String text = r1.getString("text");
+                String postedAt = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss").format(r1.getTimestamp("postedAt"));
                 postNumber++;
                 postlist.add(new SimplePostView(postNumber, authorUserName, text, postedAt));
             }
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
 
+        String q2 = "SELECT topicId, title FROM Topic WHERE topicId = ?";
+        try (PreparedStatement s2 = c.prepareStatement(q2);) {
             // 1. Shouldn't the topic checking located at the beginning of this method?
             // 2. If the issue 1 solved, should we get the topicTitle by JOIN topic in the first statement?
             //     Or maybe someone think JOIN is probably more time consuming than java code below?
-            PreparedStatement stvs = c.prepareStatement(
-                "SELECT topicId, title FROM Topic WHERE topicId = ?"
-            );
-            stvs.setInt(1, topicId);
-            ResultSet stvr = stvs.executeQuery();
-            if (stvr.next() == false) {
+            s2.setInt(1, topicId);
+            ResultSet r2 = s2.executeQuery();
+            if (r2.next() == false) {
                 return Result.failure("Topic doesn't exist!");
             }
             else {
                 do {
-                    String title = stvr.getString("title");
+                    String title = r2.getString("title");
                     resultview = new SimpleTopicView(topicId, title, postlist);
-                } while (stvr.next());
+                } while (r2.next());
             }
-            spvs.close();
-            stvs.close();
+
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
@@ -305,24 +294,23 @@ public class API implements APIProvider {
     @Override
     public Result<PostView> getLatestPost(int topicId) {
         PostView resultView = null;
-        try{
-            PreparedStatement s = c.prepareStatement(
-                "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
-                "   Person.username AS authorUserName, text, postedAt, COUNT(*) AS postNumber, " +
-                "   postLike.likes AS likes" +
-                "FROM Topic " +
-                "INNER JOIN Post ON Topic.topicId = Post.topicId " +
-                "INNER JOIN Person ON Post.authorId = Person.id " +
-                "LEFT JOIN" +
-                "   (SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post " +
-                "   INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId " +
-                "   )AS postLike ON postLike.postId = Post.postId " +
-                "WHERE Topic.topicId = ? " +
-                "ORDER BY postedAt DESC " +
-                "LIMIT 1"
-            );
-            ResultSet r = s.executeQuery();
+        String q = 
+            "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
+            "   Person.username AS authorUserName, text, postedAt, COUNT(*) AS postNumber, " +
+            "   postLike.likes AS likes" +
+            "FROM Topic " +
+            "INNER JOIN Post ON Topic.topicId = Post.topicId " +
+            "INNER JOIN Person ON Post.authorId = Person.id " +
+            "LEFT JOIN" +
+            "   (SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post " +
+            "   INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId " +
+            "   )AS postLike ON postLike.postId = Post.postId " +
+            "WHERE Topic.topicId = ? " +
+            "ORDER BY postedAt DESC " +
+            "LIMIT 1";
 
+        try (PreparedStatement s = c.prepareStatement(q)) {
+            ResultSet r = s.executeQuery();
             if (r.next()) {
                 int forumId = r.getInt("forum");
                 int postNumber = r.getInt("PostNumber");
@@ -335,7 +323,6 @@ public class API implements APIProvider {
                 resultView = new PostView(forumId, topicId, postNumber,
                     authorName, authorUserName, text, postedAt, likes);
             }
-            s.close();
         } catch(SQLException e) {
             return Result.failure("failure");
         }
@@ -762,7 +749,7 @@ public class API implements APIProvider {
             if (finalView!=null)
                 return Result.success(finalView);
             else
-                return Result.fatal("finalView uninitialized, some methods in getTopic broke");
+                return Result.failure("finalView uninitialized, some methods in getTopic broke");
        } catch (SQLException e) {
              return Result.fatal(e.getMessage());
        }
