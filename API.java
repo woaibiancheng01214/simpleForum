@@ -60,6 +60,14 @@ public class API implements APIProvider {
 
     @Override
     public Result<PersonView> getPersonView(String username) {
+        if (username != null){
+            Result usernameCheck = getUserId(username);
+            if (!usernameCheck.isSuccess()) return usernameCheck;
+        }
+        else {
+            return Result.failure("Username can not be null.");
+        }
+
         PersonView resultview = null;
         try {
             PreparedStatement s = c.prepareStatement(
@@ -85,6 +93,14 @@ public class API implements APIProvider {
     // havn't and need to judge the input parameters
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
+        if (username != null) {
+            Result usernameCheck = getUserId(username);
+            if (usernameCheck.isSuccess()) return Result.failure("Username should be unique");
+        }
+        else {
+            return Result.failure("Username can not be null.");
+        }
+
         try {
             PreparedStatement s = c.prepareStatement(
                 "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)"
@@ -347,10 +363,11 @@ public class API implements APIProvider {
         if (username == null || text == null) {
             return Result.failure("username or text can not be NULL!");
         }
+
         if (username.equals("") || text.equals("")) {
             return Result.failure("Author's username or Post's text can not be empty!");
         }
-
+        
         // topicId checking
         Result topicIdCheck = checkTopic(topicId, null);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
@@ -828,6 +845,8 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedPersonView> getAdvancedPersonView(String username) {
+        Result usernameCheck = getUserId(username);
+        if (!usernameCheck.isSuccess()) return Result.failure("There is no such person.");
         try {
             PreparedStatement s0 = c.prepareStatement(
                 " SELECT Person.name, Person.username, Person.stuId, topicLikes, postLikes," +
@@ -972,19 +991,4 @@ public class API implements APIProvider {
       }
     }
 
-    // Check the username (username != null)
-    private Result checkUsername(String username) {
-        String stmt = "SELECT * FROM Person WHERE username = ? ";
-        try (PreparedStatement s0 = c.prepareStatement(stmt)){
-            s0.setString(1, username);
-            ResultSet r = s0.executeQuery();
-            if (r.next())
-                return Result.success();
-            else
-                return Result.failure("There is no such person");
-        } catch (SQLException e) {
-            return Result.fatal(e.getMessage());
-        }
-    }
-    
 }
