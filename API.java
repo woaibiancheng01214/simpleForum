@@ -57,13 +57,10 @@ public class API implements APIProvider {
 
     @Override
     public Result<PersonView> getPersonView(String username) {
-        if (username != null){
-            Result usernameCheck = getUserId(username);
-            if (!usernameCheck.isSuccess()) return usernameCheck;
-        }
-        else {
-            return Result.failure("Username can not be null.");
-        }
+        if (username == null) return Result.failure("Username can not be null.");
+        Result usernameCheck = getUserId(username);
+        if (!usernameCheck.isSuccess()) return usernameCheck;
+        
 
         PersonView resultview = null;
         String q = "SELECT name, username, stuId FROM Person WHERE username = ? ";
@@ -84,9 +81,15 @@ public class API implements APIProvider {
         return Result.success(resultview);
     }
 
-    // havn't and need to judge the input parameters
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
+        if (username == null) return Result.failure("Username can not be null.");
+        // found existing username, return failre
+        // sql fatal error, return fatal
+        Result usernameCheck = getUserId(username);
+        if (usernameCheck.isSuccess()) return Result.failure("Username already exists");
+        else if (usernameCheck.isFatal()) return usernameCheck;
+        
         String q = "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)";
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setString(1,name);
@@ -252,6 +255,9 @@ public class API implements APIProvider {
 
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
+        Result topicIdCheck = checkTopic(topicId, null);
+        if (!topicIdCheck.isSuccess()) return topicIdCheck;
+
         SimpleTopicView resultview = null;
         List<SimplePostView> postlist;
         String q1 = 
@@ -283,14 +289,9 @@ public class API implements APIProvider {
             //     Or maybe someone think JOIN is probably more time consuming than java code below?
             s2.setInt(1, topicId);
             ResultSet r2 = s2.executeQuery();
-            if (r2.next() == false) {
-                return Result.failure("Topic doesn't exist!");
-            }
-            else {
-                do {
-                    String title = r2.getString("title");
-                    resultview = new SimpleTopicView(topicId, title, postlist);
-                } while (r2.next());
+            while (r2.next()) {
+                String title = r2.getString("title");
+                resultview = new SimpleTopicView(topicId, title, postlist);
             }
 
         } catch (SQLException e) {
