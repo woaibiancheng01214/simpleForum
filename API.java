@@ -737,27 +737,17 @@ public class API implements APIProvider {
 
     @Override
     public Result<List<AdvancedForumSummaryView>> getAdvancedForums() {
-        String q =  " SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle, " +
-                    "   Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime, " +
-                    "   author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName" +
-                    " FROM Forum" +
-                    " LEFT JOIN Topic ON Topic.forumId = Forum.id " +
-                    " LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-                    " LEFT JOIN Person author ON author.id = authorId " +
-                    " LEFT JOIN Person creator ON creator.id = creatorId " +
-                    " LEFT JOIN " +
-                    "   ( SELECT Forum.id AS forumId, MAX(postId) AS latest FROM Forum " +
-                    "   LEFT JOIN Topic ON Topic.forumId = Forum.id " +
-                    "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-                    "   GROUP BY Forum.id ) AS a ON a.forumId = Forum.id " +
-                    " LEFT JOIN " +
-                    "   (SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post " +
-                    "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId " +
-                    "   ) AS c ON Topic.topicId = c.topicId " +
-                    " LEFT JOIN " +
-                    "   (SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
-                    "   ) AS b ON Topic.topicId = b.topicId " +
-                    " WHERE Post.postId = a.latest OR Topic.topicId IS NULL ORDER BY forumTitle ";
+        String q =  "SELECT Forum.title as title, Forum.id AS forumId, lastTopic.topicId as topicId FROM Forum "+
+                    "JOIN ( "+
+                    "SELECT Topic.forumId AS forumId, MAX(Post.postedAt) AS lastPostAt FROM Topic "+
+                    "JOIN Post ON Post.topicId = Topic.topicId "+
+                    "GROUP BY Topic.forumId "+
+                    ") AS lastPost ON lastPost.forumId = Forum.id "+
+                    "LEFT JOIN ( "+
+                    "SELECT Topic.topicId AS topicId, MAX(Post.postedAt) AS lastPostAt FROM Topic "+
+                    "JOIN Post ON Post.topicId = Topic.topicId "+
+                    "GROUP BY Topic.topicId "+
+                    ") AS lastTopic ON lastPost.lastPostAt = lastTopic.lastPostAt ";
         try (PreparedStatement s = c.prepareStatement(q)) {
             ResultSet r = s.executeQuery();
 
@@ -765,22 +755,9 @@ public class API implements APIProvider {
             while (r.next()) {
                 int topicId = r.getInt("topicId");
                 int forumId = r.getInt("forumId");
-                String topicTitle = r.getString("topicTitle");
-                String forumTitle = r.getString("forumTitle");
-                int postCount = r.getInt("postCount");
-                String created = r.getString("created");
-                String lastPostTime = r.getString("lastPostTime");
-                String lastPostName = r.getString("lastPostName");
-                int likes = r.getInt("likes");
-                String creatorName = r.getString("creatorName");
-                String creatorUserName = r.getString("creatorUserName");
+                String title = r.getString("title");
 
-                TopicSummaryView lastTopicView = null;
-                if (topicTitle!=null) {
-                    lastTopicView = new TopicSummaryView(topicId,forumId,topicTitle,
-                        postCount,created,lastPostTime,lastPostName,likes,creatorName,creatorUserName);
-                }
-                AdvancedForumSummaryView forumView = new AdvancedForumSummaryView(forumId,forumTitle,lastTopicView);
+                AdvancedForumSummaryView forumView = new AdvancedForumSummaryView(forumId,title,getTopicSummaryView(topicId));
                 resultList.add(forumView);
             }
             return Result.success(resultList);
@@ -791,78 +768,51 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedPersonView> getAdvancedPersonView(String username) {
-        String q =  " SELECT Person.name, Person.username, Person.stuId, topicLikes, postLikes," +
-                    "   Topic.topicId, Topic.forumId, Topic.title AS topicTitle, postCount, created," +
-                    "   Post.postedAt as lastPostTime, author.name AS lastPostName, likes," +
-                    "   creator.name AS creatorName, creator.username AS creatorUserName" +
-                    " FROM Person " +
-                    " LEFT JOIN PersonLikeTopic ON Person.id = PersonLikeTopic.id" +
-                    " LEFT JOIN Topic ON PersonLikeTopic.topicId = Topic.topicId" +
-                    " LEFT JOIN Post ON Topic.topicId = Post.topicId" +
-                    " LEFT JOIN Person author ON author.id = Post.authorId" +
-                    " LEFT JOIN Person creator ON creator.id = Topic.creatorId" +
-                    " LEFT JOIN" +
-                    "   ( SELECT Topic.topicId AS topicId, MAX(postId) AS latest FROM Topic" +
-                    "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-                    "   GROUP BY Topic.topicId ) AS a ON a.topicId = Topic.topicId" +
-                    " LEFT JOIN" +
-                    "   ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post" +
-                    "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId" +
-                    "   ) AS b ON Topic.topicId = b.topicId" +
-                    " LEFT JOIN" +
-                    "   ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
-                    "   ) AS d ON Topic.topicId = d.topicId" +
-                    " LEFT JOIN" +
-                    "   ( SELECT author.id, COUNT(PersonLikePost.id) AS postLikes" +
-                    "   FROM Post JOIN Person author ON author.id = Post.authorId" +
-                    "   LEFT JOIN PersonlikePost ON Post.postId = PersonLikePost.postId" +
-                    "   WHERE author.username = ?" +
-                    "   )  AS e ON e.id = Person.id"+
-                    " LEFT JOIN"+
-                    "   ( SELECT creator.id, COUNT(PersonLikeTopic.id) AS topicLikes"+
-                    "   FROM Topic JOIN Person creator ON creator.id = Topic.creatorId"+
-                    "   LEFT JOIN PersonlikeTopic ON Topic.topicId = PersonLikeTopic.topicId"+
-                    "   WHERE creator.username = ? "+
-                    "   ) AS c ON c.id = Person.id"+
-                    " WHERE (Post.postId = a.latest OR Topic.topicId IS NULL) AND Person.username = ? "+
-                    " GROUP BY Person.id, Topic.topicId";
-        try (PreparedStatement s = c.prepareStatement(q)) {
-            s.setString(1,username);
-            s.setString(2,username);
-            s.setString(3,username);
-            ResultSet r = s.executeQuery();
-            AdvancedPersonView finalView = null;
-            List<TopicSummaryView> topicList = new ArrayList<>();
+        int personId = 0;
+        List<TopicSummaryView> topicList = new ArrayList<>();
+        AdvancedPersonView finalView = null;
+        String q1 = "SELECT Person.id AS id, PersonLikeTopic.topicId AS topicId FROM Person "+
+                    "JOIN PersonLikeTopic ON PersonLikeTopic.id = Person.id "+
+                    "WHERE Person.username = ?";
+
+        String q2 = "SELECT name, stuId, a.topicLikes as topicLikes, b.postLikes as postLikes FROM Person " +
+                    "LEFT JOIN ( " +
+                    "   SELECT COUNT(*) as topicLikes, Topic.creatorId as creatorId FROM Topic " +
+                    "   JOIN PersonLikeTopic ON Topic.topicId = PersonLikeTopic.topicId " +
+                    "   WHERE Topic.creatorId = ? " +
+                    ")AS a ON a.creatorId = Person.id " +
+                    "LEFT JOIN ( " +
+                    "   SELECT COUNT(*) as postLikes, Post.authorId as authorId FROM Post " +
+                    "   JOIN PersonLikePost ON Post.postId = PersonLikePost.postId " +
+                    "   WHERE Post.authorId = ? " +
+                    ")AS b ON b.authorId = Person.id ";
+        if (username == null || username.equals(""))
+            return Result.failure("Username Cannnot be Empty.");
+        try (PreparedStatement s1 = c.prepareStatement(q1)) {
+            s1.setString(1, username);
+            ResultSet r = s1.executeQuery();
             for (int i = 0;r.next();i++) {
+                if(i == 0) 
+                    personId = r.getInt("id");
                 int topicId = r.getInt("topicId");
-                int forumId = r.getInt("forumId");
-                String topicTitle = r.getString("topicTitle");
-                int postCount = r.getInt("postCount");
-                String created = r.getString("created");
-                String lastPostTime = r.getString("lastPostTime");
-                String lastPostName = r.getString("lastPostName");
-                int likes = r.getInt("likes");
-                String creatorName = r.getString("creatorName");
-                String creatorUserName = r.getString("creatorUserName");
+                topicList.add(getTopicSummaryView(topicId));
+            }
+        } catch(SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
 
-                TopicSummaryView lastTopicView = null;
-                if (topicTitle!=null) {
-                    lastTopicView = new TopicSummaryView(topicId,forumId,topicTitle,
-                    postCount,created,lastPostTime,lastPostName,likes,creatorName,creatorUserName);
-                    topicList.add(lastTopicView);
-                }
-
-                // init in beginning
-                if (i==0) {
-                    String name = r.getString("name");
-                    String stuId = r.getString("stuId");
-                    if(stuId == null)
-                       stuId = "";
-                    int topicLikes = r.getInt("topicLikes");
-                    int postLikes = r.getInt("postLikes");
-                    finalView = new AdvancedPersonView(name,username,stuId,topicLikes,
-                        postLikes, topicList);
-                }
+        try (PreparedStatement s2 = c.prepareStatement(q2)){
+            s2.setInt(1, personId);
+            s2.setInt(2, personId);
+            ResultSet r = s2.executeQuery();
+            if (r.next()) {
+                String name = r.getString("name");
+                String stuId = r.getString("stuId");
+                int topicLikes = r.getInt("topicLikes");
+                int postLikes = r.getInt("postLikes");
+                if(stuId == null)
+                    stuId = "";
+                finalView = new AdvancedPersonView(name, username, stuId, topicLikes, postLikes, topicList);
             }
             return Result.success(finalView);
         } catch (SQLException e) {
@@ -872,62 +822,86 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedForumView> getAdvancedForum(int id) {
-        String q =  " SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle, " +
-                    "   Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime, " +
-                    "   author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName" +
-                    " FROM Forum" +
-                    " LEFT JOIN Topic ON Topic.forumId = Forum.id " +
-                    " LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-                    " LEFT JOIN Person author ON author.id = authorId " +
-                    " LEFT JOIN Person creator ON creator.id = creatorId " +
-                    " LEFT JOIN " +
-                    "   ( SELECT Topic.topicId as topicId, MAX(postId) AS latest FROM Forum " +
-                    "   LEFT JOIN Topic ON Topic.forumId = Forum.id " +
-                    "   LEFT JOIN Post ON Topic.topicId = Post.topicId " +
-                    "   GROUP BY Forum.id,Topic.topicId ) AS a ON a.topicId = Topic.topicId " +
-                    " LEFT JOIN " +
-                    "   ( SELECT Topic.topicId AS topicId,COUNT(*) AS postCount FROM Topic JOIN Post " +
-                    "   ON Topic.topicId = Post.topicId GROUP BY Topic.topicId " +
-                    "   ) AS c ON Topic.topicId = c.topicId " +
-                    " LEFT JOIN " +
-                    "   ( SELECT topicId, COUNT(*) AS likes FROM PersonLikeTopic GROUP BY topicId " +
-                    "   ) AS b ON Topic.topicId = b.topicId " +
-                    " WHERE (Post.postId = a.latest OR Topic.topicId IS NULL) AND Forum.id=?  ORDER BY forumTitle ";
-        try (PreparedStatement s = c.prepareStatement(q)) {
-            s.setInt(1,id);
-            ResultSet r = s.executeQuery();
-            AdvancedForumView finalView = null;
-            List<TopicSummaryView> topicList = new ArrayList<>();
+        List<TopicSummaryView> topicList = new ArrayList<>();
+
+        String q1 = "SELECT topicId FROM Topic WHERE forumId = ?";
+        String q2 = "SELECT title FROM Forum WHERE id = ?";
+
+        try (PreparedStatement s1 = c.prepareStatement(q1)) {
+            s1.setInt(1, id);
+            ResultSet r = s1.executeQuery();
             for (int i = 0;r.next();i++) {
                 int topicId = r.getInt("topicId");
-                int forumId = r.getInt("forumId");
-                String topicTitle = r.getString("topicTitle");
-                int postCount = r.getInt("postCount");
-                String created = r.getString("created");
-                String lastPostTime = r.getString("lastPostTime");
-                String lastPostName = r.getString("lastPostName");
-                int likes = r.getInt("likes");
-                String creatorName = r.getString("creatorName");
-                String creatorUserName = r.getString("creatorUserName");
+                topicList.add(getTopicSummaryView(topicId));
+            }
+        } catch(SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
 
-                // if there is no topic, leave the topliclist empty
-                TopicSummaryView lastTopicView = null;
-                if (topicTitle!=null) {
-                    lastTopicView = new TopicSummaryView(topicId,forumId,topicTitle,
-                    postCount,created,lastPostTime,lastPostName,likes,creatorName,creatorUserName);
-                    topicList.add(lastTopicView);
-                }
-
-                // init in beginning
-                if (i==0) {
-                    String forumTitle = r.getString("forumTitle");
-                    finalView = new AdvancedForumView(forumId,forumTitle,topicList);
-                }
+        try (PreparedStatement s2 = c.prepareStatement(q2)) {
+            s2.setInt(1,id);
+            ResultSet r = s2.executeQuery();
+            AdvancedForumView finalView = null;
+            if (r.next()) {
+                String title = r.getString("title");
+                finalView = new AdvancedForumView(id, title, topicList);
             }
             return Result.success(finalView);
         } catch (SQLException e) {
            return Result.fatal(e.getMessage());
       }
+    }
+    
+
+    private TopicSummaryView getTopicSummaryView(int expectedTopicId) {
+        
+        TopicSummaryView topicSummaryView = null;
+        String state = "SELECT forumId, title, created, lastPost.lastPostTime as lastPostTime, "+
+                   "    counts.postCount AS postCount, lastPost.lastPostName as lastPostName, "+
+                   "    Person.name as creatorName, Person.username as creatorUserName, topicLike.likes as likes FROM Topic "+
+                   "JOIN (  "+
+                   "    SELECT COUNT(*) as postCount, topicId FROM Post "+
+                   "    WHERE topicId = ?"+
+                   ")AS counts ON Topic.topicId = counts.topicId "+
+                   "JOIN (  "+
+                   "    SELECT postedAt as lastPostTime, text as lastPostName, topicId FROM Post "+
+                   "    WHERE topicId = ?"+
+                   "    ORDER BY postedAt DESC"+
+                   "    LIMIT 1"+
+                   ")AS lastPost ON Topic.topicId = lastPost.topicId "+
+                   "JOIN Person on Topic.creatorId = Person.id "+
+                   "JOIN (  "+
+                   "    SELECT COUNT(*) as likes, Topic.topicId as topicId FROM Topic "+
+                   "    JOIN PersonLikeTopic on Topic.topicId = PersonLikeTopic.topicId "+
+                   "    WHERE Topic.topicId = ? "+
+                   ")AS topicLike ON Topic.topicId = topicLike.topicId";
+
+        try (PreparedStatement s = c.prepareStatement(state)) {
+            s.setInt(1, expectedTopicId);
+            s.setInt(2, expectedTopicId);
+            s.setInt(3, expectedTopicId);
+            ResultSet r = s.executeQuery();
+            if (r.next()){
+                int forumId = r.getInt("forumId");
+                String title = r.getString("title");
+                String created = r.getString("created");
+                String lastPostTime = r.getString("lastPostTime");
+                int postCount = r.getInt("postCount");
+                String lastPostName = r.getString("lastPostName");
+                String creatorName = r.getString("creatorName");
+                String creatorUserName = r.getString("creatorUserName");
+                int likes = r.getInt("likes");
+
+                if (title == null)
+                    title = "";
+                topicSummaryView = new TopicSummaryView(expectedTopicId,forumId,title,
+                postCount, created, lastPostTime, lastPostName, likes, 
+                creatorName, creatorUserName);
+            }
+            return topicSummaryView;
+        } catch (SQLException e) {
+            return null;
+        }
     }
 
 }
