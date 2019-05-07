@@ -60,6 +60,8 @@ public class API implements APIProvider {
     public Result<PersonView> getPersonView(String username) {
         if (username == null) 
             return Result.failure("Username can not be null.");
+        if (username.equals("")) 
+            return Result.failure("Username can not be blank.");
         Result usernameCheck = getUserId(username);
         if (!usernameCheck.isSuccess()) 
             return usernameCheck;
@@ -87,6 +89,8 @@ public class API implements APIProvider {
     public Result addNewPerson(String name, String username, String studentId) {
         if (username == null) 
             return Result.failure("Username can not be null.");
+        if (username.equals("")) 
+            return Result.failure("Username can not be blank.");
         // found existing username, return failre
         // sql fatal error, return fatal
         Result usernameCheck = getUserId(username);
