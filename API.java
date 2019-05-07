@@ -58,8 +58,8 @@ public class API implements APIProvider {
 //failure case not existing
     @Override
     public Result<PersonView> getPersonView(String username) {
-        if (username == null) 
-            return Result.failure("Username can not be null.");
+        if (username == null) // (username.equals(""))
+            return Result.failure("Username can not be null."); // Username can not be blank.
         Result usernameCheck = getUserId(username);
         if (!usernameCheck.isSuccess()) 
             return usernameCheck;
@@ -85,8 +85,8 @@ public class API implements APIProvider {
 
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        if (username == null) 
-            return Result.failure("Username can not be null.");
+        if (username == null) // (username.equals(""))
+            return Result.failure("Username can not be null."); // Username can not be blank.
         // found existing username, return failre
         // sql fatal error, return fatal
         Result usernameCheck = getUserId(username);
@@ -141,7 +141,7 @@ public class API implements APIProvider {
 
     @Override
     public Result createForum(String title) {
-        if (title == null)
+        if (title == null) // (title.equals(""))
             return Result.failure("Forum title can not be NULL!");
         if (title.equals(""))
             return Result.failure("Forum title can not be empty!");
