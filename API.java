@@ -56,12 +56,12 @@ public class API implements APIProvider {
     }
 
     public Result usernameCheck(String username) {
-        if (username == null) 
+        if (username == null)
             return Result.failure("Username can not be null.");
-        if (username.equals("")) 
+        if (username.equals(""))
             return Result.failure("Username can not be blank.");
         Result usernameCheck = getUserId(username);
-        if (!usernameCheck.isSuccess()) 
+        if (!usernameCheck.isSuccess())
             return usernameCheck;
         return Result.success();
     }
@@ -82,7 +82,7 @@ public class API implements APIProvider {
             if (r.next()) {
                 String name = r.getString("name");
                 String stuId = r.getString("stuId");
-                if (stuId == null) 
+                if (stuId == null)
                     stuId = "";
 
                 resultview = new PersonView(name,username,stuId);
@@ -95,18 +95,18 @@ public class API implements APIProvider {
 
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        if (username == null) 
+        if (username == null)
             return Result.failure("Username can not be null.");
-        if (username.equals("")) 
+        if (username.equals(""))
             return Result.failure("Username can not be blank.");
         // found existing username, return failre
         // sql fatal error, return fatal
         Result usernameCheck = getUserId(username);
-        if (usernameCheck.isSuccess()) 
+        if (usernameCheck.isSuccess())
             return Result.failure("Username already exists");
-        else if (usernameCheck.isFatal()) 
+        else if (usernameCheck.isFatal())
             return usernameCheck;
-        
+
         String q = "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)";
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setString(1,name);
@@ -160,9 +160,9 @@ public class API implements APIProvider {
 
         // simplified by checkForum method
         // parameter of checkForum should be optimized to meaningful data
-        Result forumIdCheck = checkForum(-1, title);
-        if (forumIdCheck.isSuccess()) 
-            return Result.failure("Forum " + title + " existed");
+        //Result forumIdCheck = checkForum(-1, title);
+        //if (forumIdCheck.isSuccess())
+         //   return Result.failure("Forum " + title + " existed");
 
         String q = "INSERT INTO Forum (title) VALUES (?)";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -229,7 +229,7 @@ public class API implements APIProvider {
     @Override
     public Result<ForumView> getForum(int id) {
         // simplified by checkForum method
-        Result forumIdCheck = checkForum(id, null);
+        Result forumIdCheck = checkForumId(id);
         if (!forumIdCheck.isSuccess())
             return forumIdCheck;
 
@@ -259,8 +259,8 @@ public class API implements APIProvider {
 
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
-        Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) 
+        Result topicIdCheck = checkTopicId(topicId);
+        if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
         SimpleTopicView resultview = null;
@@ -341,8 +341,8 @@ public class API implements APIProvider {
             return Result.failure("Author's username or Post's text can not be empty!");
 
         // topicId checking
-        Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) 
+        Result topicIdCheck = checkTopicId(topicId);
+        if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
         // fetch userId and check
@@ -377,7 +377,7 @@ public class API implements APIProvider {
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setString(1,username);
             ResultSet r = s.executeQuery();
-            if (r.next()) 
+            if (r.next())
                userId = Integer.valueOf(r.getInt("id"));
             else
                 return Result.failure("There is no such username");
@@ -387,6 +387,21 @@ public class API implements APIProvider {
         return Result.success(userId);
     }
 
+    private Result checkTopicId(int id) {
+        String q = "SELECT * FROM Topic WHERE topicId = ?";
+        try (PreparedStatement s = c.prepareStatement(q)) {
+            s.setInt(1,id);
+            ResultSet r = s.executeQuery();
+            if (r.next())
+                return Result.success();
+            else
+                return Result.failure("There is no such topic");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+    }
+
+/*
     private Result checkTopic(int id, String title) {
         String q;
         if (title != null)
@@ -412,19 +427,11 @@ public class API implements APIProvider {
             return Result.fatal(e.getMessage());
         }
     }
-
-    private Result checkForum(int forumId, String title) {
-        String q;
-        if (title != null)
-            q = "SELECT * FROM Forum WHERE title = ?";
-        else
-            q = "SELECT * FROM Forum WHERE id = ?";
-
+*/
+    private Result checkForumId(int forumId) {
+        String q = "SELECT * FROM Forum WHERE id = ?";
         try (PreparedStatement s = c.prepareStatement(q)) {
-            if (title != null) 
-                s.setString(1, title);
-            else 
-                s.setInt(1,forumId);
+            s.setInt(1,forumId);
             ResultSet r = s.executeQuery();
             if (r.next())
                 return Result.success();
@@ -435,6 +442,29 @@ public class API implements APIProvider {
         }
     }
 
+/*
+    private Result checkForum(int forumId, String title) {
+        String q;
+        if (title != null)
+            q = "SELECT * FROM Forum WHERE title = ?";
+        else
+            q = "SELECT * FROM Forum WHERE id = ?";
+
+        try (PreparedStatement s = c.prepareStatement(q)) {
+            if (title != null)
+                s.setString(1, title);
+            else
+                s.setInt(1,forumId);
+            ResultSet r = s.executeQuery();
+            if (r.next())
+                return Result.success();
+            else
+                return Result.failure("There is no such forum");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+    }
+*/
     @Override
     public Result createTopic(int forumId, String username, String title, String text) {
         Result usernameCheck = usernameCheck(username);
@@ -448,8 +478,8 @@ public class API implements APIProvider {
             return Result.failure("initial Post's text or topic's title can not be empty!");
 
         // forumId checking
-        Result forumIdCheck = checkForum(forumId, null);
-        if (!forumIdCheck.isSuccess()) 
+        Result forumIdCheck = checkForumId(forumId);
+        if (!forumIdCheck.isSuccess())
             return forumIdCheck;
 
         // jiayi insist to save this functionality
@@ -460,7 +490,7 @@ public class API implements APIProvider {
 
         //fetch userId and checking
         Result<Integer> userIdResult = getUserId(username);
-        if (!userIdResult.isSuccess()) 
+        if (!userIdResult.isSuccess())
             return userIdResult;
 
         String q1 = "INSERT INTO Topic (forumId, title, creatorId) VALUES (? ,? , ?) ";
@@ -491,7 +521,7 @@ public class API implements APIProvider {
 
             // using function createPostFromUserId() to save one getUserId query
             Result firstPostResult = createPostFromUserId(topicId,creatorId,text);
-            if (!firstPostResult.isSuccess()) 
+            if (!firstPostResult.isSuccess())
                 return firstPostResult;
 
         } catch (SQLException e) {
@@ -528,7 +558,7 @@ public class API implements APIProvider {
         }
 
         // check topicId
-        Result topicIdCheck = checkTopic(topicId, null);
+        Result topicIdCheck = checkTopicId(topicId);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
 
         // get user's id and check
@@ -593,7 +623,7 @@ public class API implements APIProvider {
             return Result.failure("postNumber should be bigger than or equal to one");
 
         // check topicId
-        Result topicIdCheck = checkTopic(topicId, null);
+        Result topicIdCheck = checkTopicId(topicId);
         if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
@@ -631,15 +661,15 @@ public class API implements APIProvider {
             // situation judge
             // if already like/unlike still return success as instructed
             if (r.next()) {
-                if (!like) 
+                if (!like)
                     result = updateLikePost(userId,postId,"delete");
-                else 
+                else
                     result = Result.success();
             }
             else {
-                if (!like) 
+                if (!like)
                     result = Result.success();
-                else 
+                else
                     result = updateLikePost(userId,postId,"add");
             }
         } catch (SQLException e) {
@@ -672,8 +702,8 @@ public class API implements APIProvider {
     @Override
     public Result<List<PersonView>> getLikers(int topicId) {
         // check whether topicId exists
-        Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) 
+        Result topicIdCheck = checkTopicId(topicId);
+        if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
         String q =  " SELECT * FROM PersonLikeTopic " +
@@ -690,7 +720,7 @@ public class API implements APIProvider {
                 String stuId = r.getString("stuId");
                 if (stuId == null)
                     stuId = "";
-                
+
                 String username = r.getString("username");
                 PersonView resultview = new PersonView(name,username,stuId);
                 resultlist.add(resultview);
@@ -704,8 +734,8 @@ public class API implements APIProvider {
     @Override
     public Result<TopicView> getTopic(int topicId) {
         //topicId checking existance
-        Result topicIdCheck = checkTopic(topicId, null);
-        if (!topicIdCheck.isSuccess()) 
+        Result topicIdCheck = checkTopicId(topicId);
+        if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
         String q =  "SELECT Topic.topicId AS topicId, Topic.title AS topicTitle, " +
@@ -897,10 +927,10 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedForumView> getAdvancedForum(int id) {
-        Result forumIdCheck = checkForum(id, null);
+        Result forumIdCheck = checkForumId(id);
         if (!forumIdCheck.isSuccess())
             return forumIdCheck;
-        
+
         String q =  " SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle, " +
                     "   Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime, " +
                     "   author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName" +
