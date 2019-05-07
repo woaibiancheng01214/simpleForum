@@ -55,9 +55,7 @@ public class API implements APIProvider {
         return Result.success(map);
     }
 
-//failure case not existing
-    @Override
-    public Result<PersonView> getPersonView(String username) {
+    public Result usernameCheck(String username) {
         if (username == null) 
             return Result.failure("Username can not be null.");
         if (username.equals("")) 
@@ -65,6 +63,16 @@ public class API implements APIProvider {
         Result usernameCheck = getUserId(username);
         if (!usernameCheck.isSuccess()) 
             return usernameCheck;
+        return Result.success();
+    }
+
+//failure case not existing
+    @Override
+    public Result<PersonView> getPersonView(String username) {
+        Result usernameCheck = usernameCheck(username);
+        if (!usernameCheck.isSuccess()) {
+            return usernameCheck;
+        }
 
         PersonView resultview = null;
         String q = "SELECT name, username, stuId FROM Person WHERE username = ? ";
@@ -429,10 +437,15 @@ public class API implements APIProvider {
 
     @Override
     public Result createTopic(int forumId, String username, String title, String text) {
-        if (username == null || text == null || title == null)
-            return Result.failure("username or text or topic title can not be NULL!");
-        if (username.equals("") || text.equals("") || title.equals(""))
-            return Result.failure("Author's username or initial Post's text or topic's title can not be empty!");
+        Result usernameCheck = usernameCheck(username);
+        if (!usernameCheck.isSuccess()) {
+            return usernameCheck;
+        }
+
+        if (text == null || title == null)
+            return Result.failure("text or topic title can not be NULL!");
+        if (text.equals("") || title.equals(""))
+            return Result.failure("initial Post's text or topic's title can not be empty!");
 
         // forumId checking
         Result forumIdCheck = checkForum(forumId, null);
@@ -509,8 +522,10 @@ public class API implements APIProvider {
       // failure. currently it will fall into SQLException and fatal
     @Override
     public Result likeTopic(String username, int topicId, boolean like) {
-        if (username==null || username.equals(""))
-            return Result.failure("username can not be null");
+        Result usernameCheck = usernameCheck(username);
+        if (!usernameCheck.isSuccess()) {
+            return usernameCheck;
+        }
 
         // check topicId
         Result topicIdCheck = checkTopic(topicId, null);
@@ -570,8 +585,10 @@ public class API implements APIProvider {
 
     @Override
     public Result likePost(String username, int topicId, int post, boolean like) {
-        if (username==null || username.equals(""))
-            return Result.failure("username can not be null");
+        Result usernameCheck = usernameCheck(username);
+        if (!usernameCheck.isSuccess()) {
+            return usernameCheck;
+        }
         if (post<1)
             return Result.failure("postNumber should be bigger than or equal to one");
 
@@ -795,6 +812,10 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedPersonView> getAdvancedPersonView(String username) {
+        Result usernameCheck = usernameCheck(username);
+        if (!usernameCheck.isSuccess()) {
+            return usernameCheck;
+        }
         String q =  " SELECT Person.name, Person.username, Person.stuId, topicLikes, postLikes," +
                     "   Topic.topicId, Topic.forumId, Topic.title AS topicTitle, postCount, created," +
                     "   Post.postedAt as lastPostTime, author.name AS lastPostName, likes," +
@@ -876,6 +897,10 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedForumView> getAdvancedForum(int id) {
+        Result forumIdCheck = checkForum(id, null);
+        if (!forumIdCheck.isSuccess())
+            return forumIdCheck;
+        
         String q =  " SELECT Topic.topicId AS topicId, Forum.id AS forumId, Forum.title AS forumTitle, " +
                     "   Topic.title AS topicTitle, postCount, created, Post.postedAt as lastPostTime, " +
                     "   author.name AS lastPostName, likes, creator.name AS creatorName, creator.username AS creatorUserName" +
