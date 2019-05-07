@@ -840,12 +840,12 @@ public class API implements APIProvider {
 
     @Override
     public Result<AdvancedPersonView> getAdvancedPersonView(String username) {
-        
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
     public Result<AdvancedForumView> getAdvancedForum(int id) {
-        
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 
 }
