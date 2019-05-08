@@ -212,7 +212,7 @@ public class API implements APIProvider {
                 int forumId = r2.getInt("id");
                 String forumTitle = r2.getString("title");
                 SimpleTopicSummaryView lastTopic = forumToTopicMapping.get(forumId);
-                // here lastTopic is unchecked so it is allowed to be null
+                //lastTopic is allowed to be null
                 ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
                 resultView.add(forumSummaryView);
             }
@@ -225,7 +225,6 @@ public class API implements APIProvider {
 
     @Override
     public Result<ForumView> getForum(int id) {
-        // simplified by checkForum method
         Result forumIdCheck = checkForumId(id);
         if (!forumIdCheck.isSuccess())
             return forumIdCheck;
@@ -468,7 +467,6 @@ public class API implements APIProvider {
         if (!usernameCheck.isSuccess()) {
             return usernameCheck;
         }
-
         if (text == null || title == null)
             return Result.failure("text or topic title can not be NULL!");
         if (text.equals("") || title.equals(""))
@@ -479,12 +477,6 @@ public class API implements APIProvider {
         if (!forumIdCheck.isSuccess())
             return forumIdCheck;
 
-        // jiayi insist to save this functionality
-        // ***** topic title checking(assuming forum has unique topics)
-        // ***** this is a not a offcial feature in the documentation of Davaid
-        //Result topicTitleCheck = checkTopic(forumId, title);
-        //if (topicTitleCheck.isSuccess()) return Result.failure("Topic " + title + " in current forum" + " existed");
-
         //fetch userId and checking
         Result<Integer> userIdResult = getUserId(username);
         if (!userIdResult.isSuccess())
@@ -493,15 +485,10 @@ public class API implements APIProvider {
         String q1 = "INSERT INTO Topic (forumId, title, creatorId) VALUES (? ,? , ?) ";
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             int creatorId = userIdResult.getValue().intValue();
-
             s1.setInt(1,forumId);
             s1.setString(2,title);
             s1.setInt(3,creatorId);
-
             s1.executeUpdate();
-
-            // potential concurrency problem with these two queries
-            // maybe use insert and fetch method with one query?
             c.commit();
 
             int topicId;
