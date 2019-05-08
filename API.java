@@ -185,11 +185,11 @@ public class API implements APIProvider {
                     "FROM " +
                     " ( SELECT topic.topicId, topic.forumId, topic.title as topicTitle, post.postId " +
                     " FROM Forum JOIN topic ON forum.id = topic.forumId " +
-                    "   JOIN post ON topic.topicId = post.topicId ) AS a " +
+                    "   JOIN Post ON topic.topicId = post.topicId ) AS a " +
                     "JOIN " +
                     "( SELECT topic.forumId, MAX(postId) as latest " +
                     " FROM Forum JOIN topic ON forum.id = topic.forumId "+
-                    " JOIN post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
+                    " JOIN Post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
                     "ON a.forumId = b.forumId AND a.postId = b.latest GROUP BY a.forumId";
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             ResultSet r1 = s1.executeQuery();
