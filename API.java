@@ -177,12 +177,9 @@ public class API implements APIProvider {
     }
 
     /* A.3 */
-// timing order by id (autp incre) or in mille seconds
     @Override
     public Result<List<ForumSummaryView>> getForums() {
         List<ForumSummaryView> resultView = new ArrayList<>();
-        // find (forumId,lastTopicView) pairs
-        // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
         Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
         String q1 = "SELECT topicId, a.forumId as forumId, topicTitle " +
                     "FROM " +
