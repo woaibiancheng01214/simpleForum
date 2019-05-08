@@ -180,16 +180,18 @@ public class API implements APIProvider {
     @Override
     public Result<List<ForumSummaryView>> getForums() {
         List<ForumSummaryView> resultView = new ArrayList<>();
+        // find (forumId,lastTopicView) pairs
+        // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
         Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
         String q1 = "SELECT topicId, a.forumId as forumId, topicTitle " +
                     "FROM " +
-                    " ( SELECT topic.topicId, topic.forumId, topic.title as topicTitle, post.postId " +
-                    " FROM Forum JOIN topic ON forum.id = topic.forumId " +
-                    "   JOIN Post ON topic.topicId = post.topicId ) AS a " +
+                    " ( SELECT Topic.topicId, Topic.forumId, Topic.title as topicTitle, Post.postId " +
+                    " FROM Forum JOIN Topic ON Forum.id = Topic.forumId " +
+                    "   JOIN Post ON Topic.topicId = Post.topicId ) AS a " +
                     "JOIN " +
-                    "( SELECT topic.forumId, MAX(postId) as latest " +
-                    " FROM Forum JOIN topic ON forum.id = topic.forumId "+
-                    " JOIN Post ON topic.topicId = post.topicId GROUP BY forumId ) AS b "+
+                    "( SELECT Topic.forumId, MAX(postId) as latest " +
+                    " FROM Forum JOIN Topic ON Forum.id = Topic.forumId "+
+                    " JOIN Post ON Topic.topicId = Post.topicId GROUP BY forumId ) AS b "+
                     "ON a.forumId = b.forumId AND a.postId = b.latest GROUP BY a.forumId";
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             ResultSet r1 = s1.executeQuery();
@@ -212,7 +214,7 @@ public class API implements APIProvider {
                 int forumId = r2.getInt("id");
                 String forumTitle = r2.getString("title");
                 SimpleTopicSummaryView lastTopic = forumToTopicMapping.get(forumId);
-                //lastTopic is allowed to be null
+                // here lastTopic is unchecked so it is allowed to be null
                 ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
                 resultView.add(forumSummaryView);
             }
@@ -222,6 +224,7 @@ public class API implements APIProvider {
 
         return Result.success(resultView);
     }
+
 
     @Override
     public Result<ForumView> getForum(int id) {
