@@ -158,11 +158,9 @@ public class API implements APIProvider {
         if (title.equals(""))
             return Result.failure("Forum title can not be empty!");
 
-        // simplified by checkForum method
-        // parameter of checkForum should be optimized to meaningful data
-        //Result forumIdCheck = checkForum(-1, title);
-        //if (forumIdCheck.isSuccess())
-         //   return Result.failure("Forum " + title + " existed");
+        Result forumTitleCheck = checkForumTitle(title);
+        if (!forumTitleCheck.isSuccess())
+            return forumTitleCheck;
 
         String q = "INSERT INTO Forum (title) VALUES (?)";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -441,29 +439,20 @@ public class API implements APIProvider {
         }
     }
 
-/*
-    private Result checkForum(int forumId, String title) {
-        String q;
-        if (title != null)
-            q = "SELECT * FROM Forum WHERE title = ?";
-        else
-            q = "SELECT * FROM Forum WHERE id = ?";
-
+    private Result checkForumTitle(String title) {
+        String q = "SELECT * FROM Forum WHERE title = ?";
         try (PreparedStatement s = c.prepareStatement(q)) {
-            if (title != null)
-                s.setString(1, title);
-            else
-                s.setInt(1,forumId);
+            s.setString(1, title);
             ResultSet r = s.executeQuery();
             if (r.next())
-                return Result.success();
+                return Result.failure("Forum already exists");
             else
-                return Result.failure("There is no such forum");
+                return Result.success();
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
     }
-*/
+
     @Override
     public Result createTopic(int forumId, String username, String title, String text) {
         Result usernameCheck = usernameCheck(username);
