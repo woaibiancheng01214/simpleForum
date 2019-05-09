@@ -816,7 +816,7 @@ public class API implements APIProvider {
             if (finalView!=null)
                 return Result.success(finalView);
             else
-                return Result.failure("finalView uninitialized, some methods in getTopic broke");
+                return Result.fatal("finalView uninitialized, some methods in getTopic broke");
        } catch (SQLException e) {
              return Result.fatal(e.getMessage());
        }
