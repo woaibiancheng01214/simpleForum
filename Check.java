@@ -11,7 +11,7 @@ import java.text.SimpleDateFormat;
 class Check {
 
     /**
-     * Check {@link #getUserId(String) getUserId} to see their similar functionality
+     * Check {@link API#getUserId(String) getUserId} to see their similar functionality
      * @param id
      * @return
      */
@@ -30,7 +30,7 @@ class Check {
     }
 
     /**
-     * Check {@link #getUserId(String) getUserId} to see their similar functionality
+     * Check {@link API#getUserId(String) getUserId} to see their similar functionality
      * @param forumId
      * @return
      */
@@ -49,7 +49,7 @@ class Check {
     }
 
     /**
-     * Check {@link #getUserId(String) getUserId} to see their similar functionality
+     * Check {@link API#getUserId(String) getUserId} to see their similar functionality
      * @param title
      * @return
      */

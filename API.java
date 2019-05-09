@@ -394,8 +394,8 @@ public class API implements APIProvider {
     /**
      * This method is used for check whether the person with a particular username
      * exists in the database every time a method receive a username as the parameter.
-     * Besides, {@link #checkTopicId(int) checkTopicId}, {@link #checkForumId(int) checkForumId} 
-     * and {@link #checkForumTitle(String) checkForumTitle} #chec
+     * Besides, {@link Check#checkTopicId(int) checkTopicId}, {@link Check#checkForumId(int) checkForumId} 
+     * and {@link Check#checkForumTitle(String) checkForumTitle} #chec
      * appear to have similar functionality with this method.
      * @param username the username of the person who are doing operations(add,delete,update)
      * @return Return {@code Result.success} if the person with that username is found
