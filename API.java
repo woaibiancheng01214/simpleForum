@@ -636,7 +636,7 @@ public class API implements APIProvider {
             // if already like/unlike still return success as instructed
             if (r.next()) {
                 if (!like)
-                    result = updateLikePost(userId,postId,"delete");
+                    result = updateLikePost(userId,postId,false);
                 else
                     result = Result.success();
             }
@@ -644,7 +644,7 @@ public class API implements APIProvider {
                 if (!like)
                     result = Result.success();
                 else
-                    result = updateLikePost(userId,postId,"add");
+                    result = updateLikePost(userId,postId,true);
             }
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
@@ -654,9 +654,9 @@ public class API implements APIProvider {
     }
 
     // add and delete post methods were integrated into one method
-    private Result updateLikePost(int userId, int postId, String operation) {
+    private Result updateLikePost(int userId, int postId, boolean likeOrNot) {
         String q = null;
-        if (operation.equals("add"))
+        if (likeOrNot == true)
             q = "INSERT INTO PersonLikePost (id,postId) VALUES ( ? , ? )";
         else
             q = "DELETE FROM PersonLikePost WHERE id = ? AND postId = ?";
