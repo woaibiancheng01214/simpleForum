@@ -551,7 +551,7 @@ public class API implements APIProvider {
             // if already like/unlike still return success as instructed
             if (r.next()) {
                 if (!like)
-                    result = updateLikeTopic(userId,topicId,"delete");
+                    result = updateLikeTopic(userId,topicId,false);
                 else
                     result = Result.success();
             }
@@ -559,7 +559,7 @@ public class API implements APIProvider {
                 if (!like)
                     result = Result.success();
                 else
-                    result = updateLikeTopic(userId,topicId,"add");
+                    result = updateLikeTopic(userId,topicId,true);
             }
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
@@ -569,9 +569,9 @@ public class API implements APIProvider {
     }
 
     // add and delete topic methods were integrated into one method
-    private Result updateLikeTopic(int userId, int topicId, String operation) {
+    private Result updateLikeTopic(int userId, int topicId, boolean likeOrNot) {
         String q = null;
-        if (operation.equals("add"))
+        if (likeOrNot==true)
             q = "INSERT INTO PersonLikeTopic (id,topicId) VALUES ( ? , ? )";
         else
             q = "DELETE FROM PersonLikeTopic WHERE id = ? AND topicId = ?";
