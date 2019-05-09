@@ -55,7 +55,14 @@ public class API implements APIProvider {
         return Result.success(map);
     }
 
-    public Result usernameCheck(String username) {
+    /**
+     * This method encapsulated several checks related to username(String), including
+     * NULL check, Empty check, and existance check (by {@link #getUserId(String) getUserId})
+     * @param username the username of the person trying to do operations(add,lookup,delete)
+     * @return Return {@code Result.success} if all check pass
+     * Return {@code Result.failure} with correspond information
+     */
+    private Result usernameCheck(String username) {
         if (username == null)
             return Result.failure("Username can not be null.");
         if (username.equals(""))
@@ -66,7 +73,7 @@ public class API implements APIProvider {
         return Result.success();
     }
 
-//failure case not existing
+    //failure case not existing
     @Override
     public Result<PersonView> getPersonView(String username) {
         Result usernameCheck = usernameCheck(username);
@@ -120,7 +127,14 @@ public class API implements APIProvider {
         return Result.success();
     }
 
-    // try to return to last commit if sqlexception happens
+    /**
+     * This method is used for trying to rollback to last commit when
+     * a SQLException is caught during updating database.
+     * @param e the original SQLException caught by previous method
+     * @return return original SQLException {@code e.getMessage()} if 
+     * successfully rollback, and return new SQLException {@code f.getMessage()}
+     * if failed to rollback.
+     */
     private Result tryRollback(SQLException e) {
         try {
             c.rollback();
@@ -351,7 +365,15 @@ public class API implements APIProvider {
         return createPostFromUserId(topicId,authorId,text);
     }
 
-    // split createPost to two seperate tasks (parameter check and query execution)
+    /**
+     * This method is used for spliting {@code createPost} method to two 
+     * seperate tasks (parameter check and query execution)
+     * @param topicId  the id of the topic that this new post belongs to
+     * @param authorId the id of the person who created this post
+     * @param text     the content of this post
+     * @return return {@code Result.success} if a post is successfully created.
+     * Check {@link #tryRollback(SQLException e) tryRollback} for other types returns 
+     */
     private Result createPostFromUserId(int topicId, int authorId, String text) {
       // everything is already checked in previous function
       String q = "INSERT INTO Post (topicId,text,authorId) VALUES ( ? , ? ,? )";
@@ -368,6 +390,18 @@ public class API implements APIProvider {
         return Result.success();
     }
 
+    /**
+     * This method is used for check whether the person with a particular username
+     * exists in the database every time a method receive a username as the parameter.
+     * Besides, {@link #checkTopicId(int) checkTopicId}, {@link #checkForumId(int) checkForumId} 
+     * and {@link #checkForumTitle(String) checkForumTitle} #chec
+     * appear to have similar functionality with this method.
+     * @param username the username of the person who are doing operations(add,delete,update)
+     * @return Return {@code Result.success} if the person with that username is found
+     * in database. 
+     * Return {@code Result.failure} if not found. 
+     * Return {@code Result.fatal} if SQLException is caught when execute lookup query
+     */
     private Result<Integer> getUserId(String username) {
         Integer userId = null;
         String q = "SELECT id FROM Person WHERE Person.username = ?";
@@ -384,6 +418,11 @@ public class API implements APIProvider {
         return Result.success(userId);
     }
 
+    /**
+     * Check {@link #getUserId(String) getUserId} to see their similar functionality
+     * @param id
+     * @return
+     */
     private Result checkTopicId(int id) {
         String q = "SELECT * FROM Topic WHERE topicId = ?";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -425,6 +464,12 @@ public class API implements APIProvider {
         }
     }
 */
+
+    /**
+     * Check {@link #getUserId(String) getUserId} to see their similar functionality
+     * @param forumId
+     * @return
+     */
     private Result checkForumId(int forumId) {
         String q = "SELECT * FROM Forum WHERE id = ?";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -439,6 +484,11 @@ public class API implements APIProvider {
         }
     }
 
+    /**
+     * Check {@link #getUserId(String) getUserId} to see their similar functionality
+     * @param title
+     * @return
+     */
     private Result checkForumTitle(String title) {
         String q = "SELECT * FROM Forum WHERE title = ?";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -568,7 +618,15 @@ public class API implements APIProvider {
         return result;
     }
 
-    // add and delete topic methods were integrated into one method
+    /**
+     * The like/unlike records of topic are updated through this method, and it
+     * is similar to another updating method {@link #updateLikePost(int, int, boolean) updateLikePost}
+     * @param userId {@code int} The id of the person who clicks like/unlike
+     * @param topicId {@code int} The id of the topic that is liked/unliked through click
+     * @param likeOrNot {@code boolean} True means like and false denotes unlike
+     * @return Return {@code Result.success} if update is successfully executed.
+     * Return failure or fatal according to what happens in {@link #tryRollback(SQLException) tryRollback}
+     */
     private Result updateLikeTopic(int userId, int topicId, boolean likeOrNot) {
         String q = null;
         if (likeOrNot==true)
@@ -653,7 +711,13 @@ public class API implements APIProvider {
         return result;
     }
 
-    // add and delete post methods were integrated into one method
+    /**
+     * Similar to another updating method {@link #updateLikeTopic(int, int, boolean) updateLikeTopic}
+     * @param userId
+     * @param postId
+     * @param likeOrNot
+     * @return
+     */
     private Result updateLikePost(int userId, int postId, boolean likeOrNot) {
         String q = null;
         if (likeOrNot == true)
