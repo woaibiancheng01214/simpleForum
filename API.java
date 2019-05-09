@@ -55,23 +55,6 @@ public class API implements APIProvider {
         return Result.success(map);
     }
 
-    /**
-     * This method encapsulated several checks related to username(String), including
-     * NULL check, Empty check, and existance check (by {@link #getUserId(String) getUserId})
-     * @param username the username of the person trying to do operations(add,lookup,delete)
-     * @return Return {@code Result.success} if all check pass
-     * Return {@code Result.failure} with correspond information
-     */
-    private Result usernameCheck(String username) {
-        if (username == null)
-            return Result.failure("Username can not be null.");
-        if (username.equals(""))
-            return Result.failure("Username can not be blank.");
-        Result usernameCheck = getUserId(username);
-        if (!usernameCheck.isSuccess())
-            return usernameCheck;
-        return Result.success();
-    }
 
     //failure case not existing
     @Override
@@ -98,6 +81,24 @@ public class API implements APIProvider {
             return Result.fatal(e.getMessage());
         }
         return Result.success(resultview);
+    }
+
+    /**
+     * This method encapsulated several checks related to username(String), including
+     * NULL check, Empty check, and existance check (by {@link #getUserId(String) getUserId})
+     * @param username the username of the person trying to do operations(add,lookup,delete)
+     * @return Return {@code Result.success} if all check pass
+     * Return {@code Result.failure} with correspond information
+     */
+    private Result usernameCheck(String username) {
+        if (username == null)
+            return Result.failure("Username can not be null.");
+        if (username.equals(""))
+            return Result.failure("Username can not be blank.");
+        Result usernameCheck = getUserId(username);
+        if (!usernameCheck.isSuccess())
+            return usernameCheck;
+        return Result.success();
     }
 
     @Override
@@ -172,7 +173,7 @@ public class API implements APIProvider {
         if (title.equals(""))
             return Result.failure("Forum title can not be empty!");
 
-        Result forumTitleCheck = checkForumTitle(title);
+        Result forumTitleCheck = Check.checkForumTitle(title,c);
         if (!forumTitleCheck.isSuccess())
             return forumTitleCheck;
 
@@ -240,7 +241,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<ForumView> getForum(int id) {
-        Result forumIdCheck = checkForumId(id);
+        Result forumIdCheck = Check.checkForumId(id,c);
         if (!forumIdCheck.isSuccess())
             return forumIdCheck;
 
@@ -270,7 +271,7 @@ public class API implements APIProvider {
 
     @Override
     public Result<SimpleTopicView> getSimpleTopic(int topicId) {
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = Check.checkTopicId(topicId, c);
         if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
@@ -352,7 +353,7 @@ public class API implements APIProvider {
             return Result.failure("Author's username or Post's text can not be empty!");
 
         // topicId checking
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = Check.checkTopicId(topicId,c);
         if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
@@ -418,90 +419,6 @@ public class API implements APIProvider {
         return Result.success(userId);
     }
 
-    /**
-     * Check {@link #getUserId(String) getUserId} to see their similar functionality
-     * @param id
-     * @return
-     */
-    private Result checkTopicId(int id) {
-        String q = "SELECT * FROM Topic WHERE topicId = ?";
-        try (PreparedStatement s = c.prepareStatement(q)) {
-            s.setInt(1,id);
-            ResultSet r = s.executeQuery();
-            if (r.next())
-                return Result.success();
-            else
-                return Result.failure("There is no such topic");
-        } catch (SQLException e) {
-            return Result.fatal(e.getMessage());
-        }
-    }
-
-/*
-    private Result checkTopic(int id, String title) {
-        String q;
-        if (title != null)
-            q = "SELECT * FROM Topic t JOIN Forum f ON t.forumId = f.id WHERE forumId = ? AND t.title = ?";
-        else
-            q = "SELECT * FROM Topic WHERE topicId = ?";
-
-        try (PreparedStatement s = c.prepareStatement(q)) {
-            if (title != null) {
-                s.setInt(1,id);
-                s.setString(2, title);
-            }
-            else {
-                s.setInt(1,id);
-            }
-
-            ResultSet r = s.executeQuery();
-            if (r.next())
-                return Result.success();
-            else
-                return Result.failure("There is no such topic");
-        } catch (SQLException e) {
-            return Result.fatal(e.getMessage());
-        }
-    }
-*/
-
-    /**
-     * Check {@link #getUserId(String) getUserId} to see their similar functionality
-     * @param forumId
-     * @return
-     */
-    private Result checkForumId(int forumId) {
-        String q = "SELECT * FROM Forum WHERE id = ?";
-        try (PreparedStatement s = c.prepareStatement(q)) {
-            s.setInt(1,forumId);
-            ResultSet r = s.executeQuery();
-            if (r.next())
-                return Result.success();
-            else
-                return Result.failure("There is no such forum");
-        } catch (SQLException e) {
-            return Result.fatal(e.getMessage());
-        }
-    }
-
-    /**
-     * Check {@link #getUserId(String) getUserId} to see their similar functionality
-     * @param title
-     * @return
-     */
-    private Result checkForumTitle(String title) {
-        String q = "SELECT * FROM Forum WHERE title = ?";
-        try (PreparedStatement s = c.prepareStatement(q)) {
-            s.setString(1, title);
-            ResultSet r = s.executeQuery();
-            if (r.next())
-                return Result.failure("Forum already exists");
-            else
-                return Result.success();
-        } catch (SQLException e) {
-            return Result.fatal(e.getMessage());
-        }
-    }
 
     @Override
     public Result createTopic(int forumId, String username, String title, String text) {
@@ -515,7 +432,7 @@ public class API implements APIProvider {
             return Result.failure("initial Post's text or topic's title can not be empty!");
 
         // forumId checking
-        Result forumIdCheck = checkForumId(forumId);
+        Result forumIdCheck = Check.checkForumId(forumId,c);
         if (!forumIdCheck.isSuccess())
             return forumIdCheck;
 
@@ -582,7 +499,7 @@ public class API implements APIProvider {
         }
 
         // check topicId
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = Check.checkTopicId(topicId,c);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
 
         // get user's id and check
@@ -655,7 +572,7 @@ public class API implements APIProvider {
             return Result.failure("postNumber should be bigger than or equal to one");
 
         // check topicId
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = Check.checkTopicId(topicId,c);
         if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
@@ -740,7 +657,7 @@ public class API implements APIProvider {
     @Override
     public Result<List<PersonView>> getLikers(int topicId) {
         // check whether topicId exists
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = Check.checkTopicId(topicId,c);
         if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
@@ -772,7 +689,7 @@ public class API implements APIProvider {
     @Override
     public Result<TopicView> getTopic(int topicId) {
         //topicId checking existance
-        Result topicIdCheck = checkTopicId(topicId);
+        Result topicIdCheck = Check.checkTopicId(topicId,c);
         if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
