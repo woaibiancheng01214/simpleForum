@@ -24,10 +24,7 @@ import java.sql.DriverManager;
 import java.sql.*;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
-/** compile issues
- * there is a unsafe type uncheck conversion problem, (-XLINT: uncheckED)
- * i don't think it is solvable because of the nature of the result class ////by wangchao  @author csxdb
- */
+
 public class API implements APIProvider {
 
     private final Connection c;
@@ -56,14 +53,12 @@ public class API implements APIProvider {
     }
 
 
-    //failure case not existing
     @Override
     public Result<PersonView> getPersonView(String username) {
-        Result usernameCheck = usernameCheck(username);
+        Result usernameCheck = Check.usernameCheck(username,c);
         if (!usernameCheck.isSuccess()) {
             return usernameCheck;
         }
-
         PersonView resultview = null;
         String q = "SELECT name, username, stuId FROM Person WHERE username = ? ";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -74,7 +69,6 @@ public class API implements APIProvider {
                 String stuId = r.getString("stuId");
                 if (stuId == null)
                     stuId = "";
-
                 resultview = new PersonView(name,username,stuId);
             }
         } catch (SQLException e) {
@@ -83,37 +77,18 @@ public class API implements APIProvider {
         return Result.success(resultview);
     }
 
-    /**
-     * This method encapsulated several checks related to username(String), including
-     * NULL check, Empty check, and existance check (by {@link #getUserId(String) getUserId})
-     * @param username the username of the person trying to do operations(add,lookup,delete)
-     * @return Return {@code Result.success} if all check pass
-     * Return {@code Result.failure} with correspond information
-     */
-    private Result usernameCheck(String username) {
-        if (username == null)
-            return Result.failure("Username can not be null.");
-        if (username.equals(""))
-            return Result.failure("Username can not be blank.");
-        Result usernameCheck = getUserId(username);
-        if (!usernameCheck.isSuccess())
-            return usernameCheck;
-        return Result.success();
-    }
-
     @Override
     public Result addNewPerson(String name, String username, String studentId) {
-        if (username == null)
-            return Result.failure("Username can not be null.");
-        if (username.equals(""))
-            return Result.failure("Username can not be blank.");
+        Result basicCheck = Check.usernameBaiscCheck(username);
+        if(!basicCheck.isSuccess())
+             return basicCheck;
         // found existing username, return failre
-        // sql fatal error, return fatal
-        Result usernameCheck = getUserId(username);
-        if (usernameCheck.isSuccess())
+        // if not found, proceed the function
+        Result existanceCheck = Check.usernameCheckExistance(username,c);
+        if (existanceCheck.isSuccess())
             return Result.failure("Username already exists");
-        else if (usernameCheck.isFatal())
-            return usernameCheck;
+        else if (existanceCheck.isFatal())
+            return existanceCheck;
 
         String q = "INSERT INTO Person (name, username, stuId) VALUES (?, ?, ?)";
         try (PreparedStatement s = c.prepareStatement(q)) {
@@ -129,10 +104,35 @@ public class API implements APIProvider {
     }
 
     /**
+     * This method is used to get person's id from username
+     * it will return failure if this username doesn't exist
+     * @param username the username of the person
+     * @return Return {@code Result.success} if the person with that username is found
+     * in database.
+     * Return {@code Result.failure} if not found.
+     * Return {@code Result.fatal} if SQLException is caught when execute lookup query
+     */
+    private Result<Integer> getUserId(String username) {
+        Integer userId = null;
+        String q = "SELECT id FROM Person WHERE Person.username = ?";
+        try (PreparedStatement s = c.prepareStatement(q)) {
+            s.setString(1,username);
+            ResultSet r = s.executeQuery();
+            if (r.next())
+               userId = Integer.valueOf(r.getInt("id"));
+            else
+                return Result.failure("There is no such username");
+        } catch (SQLException e) {
+            return Result.fatal(e.getMessage());
+        }
+        return Result.success(userId);
+    }
+
+    /**
      * This method is used for trying to rollback to last commit when
      * a SQLException is caught during updating database.
      * @param e the original SQLException caught by previous method
-     * @return return original SQLException {@code e.getMessage()} if 
+     * @return return original SQLException {@code e.getMessage()} if
      * successfully rollback, and return new SQLException {@code f.getMessage()}
      * if failed to rollback.
      */
@@ -193,9 +193,6 @@ public class API implements APIProvider {
     @Override
     public Result<List<ForumSummaryView>> getForums() {
         List<ForumSummaryView> resultView = new ArrayList<>();
-        // find (forumId,lastTopicView) pairs
-        // if there're several topics have latest posts at the same time, an arbitrary one is chosed(no rules)
-        Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
         String q1 = "SELECT topicId, a.forumId as forumId, topicTitle " +
                     "FROM " +
                     " ( SELECT Topic.topicId, Topic.forumId, Topic.title as topicTitle, Post.postId " +
@@ -206,6 +203,9 @@ public class API implements APIProvider {
                     " FROM Forum JOIN Topic ON Forum.id = Topic.forumId "+
                     " JOIN Post ON Topic.topicId = Post.topicId GROUP BY forumId ) AS b "+
                     "ON a.forumId = b.forumId AND a.postId = b.latest GROUP BY a.forumId";
+
+        // find (forumId,lastTopicView) pairs
+        Map<Integer,SimpleTopicSummaryView> forumToTopicMapping = new HashMap<>();
         try (PreparedStatement s1 = c.prepareStatement(q1)) {
             ResultSet r1 = s1.executeQuery();
             while (r1.next()) {
@@ -227,7 +227,7 @@ public class API implements APIProvider {
                 int forumId = r2.getInt("id");
                 String forumTitle = r2.getString("title");
                 SimpleTopicSummaryView lastTopic = forumToTopicMapping.get(forumId);
-                // here lastTopic is unchecked so it is allowed to be null
+                // lastTopic here is allowed to be null
                 ForumSummaryView forumSummaryView = new ForumSummaryView(forumId, forumTitle, lastTopic);
                 resultView.add(forumSummaryView);
             }
@@ -309,22 +309,26 @@ public class API implements APIProvider {
 
     @Override
     public Result<PostView> getLatestPost(int topicId) {
+        Result topicIdCheck = Check.checkTopicId(topicId, c);
+        if (!topicIdCheck.isSuccess())
+            return topicIdCheck;
         PostView resultView = null;
         String q = "SELECT Topic.forumId AS forum, Person.name AS authorName, " +
                     "   Person.username AS authorUserName, text, postedAt, COUNT(*) AS postNumber, " +
-                    "   postLike.likes AS likes" +
+                    "   postLike.likes AS likes " +
                     "FROM Topic " +
-                    "INNER JOIN Post ON Topic.topicId = Post.topicId " +
-                    "INNER JOIN Person ON Post.authorId = Person.id " +
-                    "LEFT JOIN" +
-                    "   (SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post " +
-                    "   INNER JOIN PersonLikePost ON PersonLikePost.postId = Post.postId " +
-                    "   )AS postLike ON postLike.postId = Post.postId " +
+                    "JOIN Post ON Topic.topicId = Post.topicId " +
+                    "JOIN Person ON Post.authorId = Person.id " +
+                    "LEFT JOIN " +
+                    "   ( SELECT Post.postId AS postId, COUNT(*) AS likes FROM Post " +
+                    "     JOIN PersonLikePost ON PersonLikePost.postId = Post.postId " +
+                    "   ) AS postLike ON postLike.postId = Post.postId " +
                     "WHERE Topic.topicId = ? " +
                     "ORDER BY postedAt DESC " +
                     "LIMIT 1";
 
         try (PreparedStatement s = c.prepareStatement(q)) {
+            s.setInt(1, topicId);
             ResultSet r = s.executeQuery();
             if (r.next()) {
                 int forumId = r.getInt("forum");
@@ -339,7 +343,7 @@ public class API implements APIProvider {
                     authorName, authorUserName, text, postedAt, likes);
             }
         } catch(SQLException e) {
-            return Result.failure("failure");
+            return Result.failure(e.getMessage());
         }
         return Result.success(resultView);
     }
@@ -348,7 +352,6 @@ public class API implements APIProvider {
     public Result createPost(int topicId, String username, String text) {
         if (username == null || text == null)
             return Result.failure("username or text can not be NULL!");
-
         if (username.equals("") || text.equals(""))
             return Result.failure("Author's username or Post's text can not be empty!");
 
@@ -357,7 +360,7 @@ public class API implements APIProvider {
         if (!topicIdCheck.isSuccess())
             return topicIdCheck;
 
-        // fetch userId and check
+        // fetch userId and return failure if not existed /fatal if sql error
         Result<Integer> userIdResult = getUserId(username);
         if (!userIdResult.isSuccess())
            return userIdResult;
@@ -367,16 +370,17 @@ public class API implements APIProvider {
     }
 
     /**
-     * This method is used for spliting {@code createPost} method to two 
-     * seperate tasks (parameter check and query execution)
+     * This method is used for spliting {@code createPost} method to two
+     * seperate tasks (parameters operation and query execution)
+     * This method is reused in {@code createTopic}
      * @param topicId  the id of the topic that this new post belongs to
      * @param authorId the id of the person who created this post
      * @param text     the content of this post
      * @return return {@code Result.success} if a post is successfully created.
-     * Check {@link #tryRollback(SQLException e) tryRollback} for other types returns 
+     * Check {@link #tryRollback(SQLException e) tryRollback} for other types returns
      */
     private Result createPostFromUserId(int topicId, int authorId, String text) {
-      // everything is already checked in previous function
+      // everything is already checked in the previous function
       String q = "INSERT INTO Post (topicId,text,authorId) VALUES ( ? , ? ,? )";
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setInt(1,topicId);
@@ -391,38 +395,9 @@ public class API implements APIProvider {
         return Result.success();
     }
 
-    /**
-     * This method is used for check whether the person with a particular username
-     * exists in the database every time a method receive a username as the parameter.
-     * Besides, {@link Check#checkTopicId(int) checkTopicId}, {@link Check#checkForumId(int) checkForumId} 
-     * and {@link Check#checkForumTitle(String) checkForumTitle} #chec
-     * appear to have similar functionality with this method.
-     * @param username the username of the person who are doing operations(add,delete,update)
-     * @return Return {@code Result.success} if the person with that username is found
-     * in database. 
-     * Return {@code Result.failure} if not found. 
-     * Return {@code Result.fatal} if SQLException is caught when execute lookup query
-     */
-    private Result<Integer> getUserId(String username) {
-        Integer userId = null;
-        String q = "SELECT id FROM Person WHERE Person.username = ?";
-        try (PreparedStatement s = c.prepareStatement(q)) {
-            s.setString(1,username);
-            ResultSet r = s.executeQuery();
-            if (r.next())
-               userId = Integer.valueOf(r.getInt("id"));
-            else
-                return Result.failure("There is no such username");
-        } catch (SQLException e) {
-            return Result.fatal(e.getMessage());
-        }
-        return Result.success(userId);
-    }
-
-
     @Override
     public Result createTopic(int forumId, String username, String title, String text) {
-        Result usernameCheck = usernameCheck(username);
+        Result usernameCheck = Check.usernameCheck(username,c);
         if (!usernameCheck.isSuccess()) {
             return usernameCheck;
         }
@@ -473,18 +448,22 @@ public class API implements APIProvider {
         return Result.success();
     }
 
-   /* as mentioned in the offical documentation
-       this function is never used on web interface, therefore not tested yet*/
     @Override
     public Result<Integer> countPostsInTopic(int topicId) {
-        String q = "SELECT COUNT(*) FROM Post JOIN Topic ON Post.topicId = Topic.topicId WHERE Topic.topicId = ? ";
+        // check whether topicId exists
+        Result topicIdCheck = Check.checkTopicId(topicId,c);
+        if (!topicIdCheck.isSuccess())
+             return topicIdCheck;
+
+        String q = "SELECT COUNT(Post.postId) as count FROM Topic LEFT JOIN Post ON Post.topicId = Topic.topicId WHERE Topic.topicId = ? ";
         try (PreparedStatement s = c.prepareStatement(q)) {
             s.setInt(1,topicId);
             ResultSet r = s.executeQuery();
             if (r.next())
-                return Result.success(Integer.valueOf(r.getInt("id")));
+                return Result.success(Integer.valueOf(r.getInt("count")));
             else
-                return Result.failure("There is no such topic with this topicId");
+                // existance is alreadly checked, so something else is wrong
+                return Result.fatal("countPostsInTopic method broke");
         } catch (SQLException e) {
             return Result.fatal(e.getMessage());
         }
@@ -493,7 +472,7 @@ public class API implements APIProvider {
     /* B.1 */
     @Override
     public Result likeTopic(String username, int topicId, boolean like) {
-        Result usernameCheck = usernameCheck(username);
+        Result usernameCheck = Check.usernameCheck(username,c);
         if (!usernameCheck.isSuccess()) {
             return usernameCheck;
         }
@@ -502,7 +481,7 @@ public class API implements APIProvider {
         Result topicIdCheck = Check.checkTopicId(topicId,c);
         if (!topicIdCheck.isSuccess()) return topicIdCheck;
 
-        // get user's id and check
+        // get user's id
         Result<Integer> userIdResult = getUserId(username);
         if (!userIdResult.isSuccess()) return userIdResult;
 
@@ -564,7 +543,7 @@ public class API implements APIProvider {
 
     @Override
     public Result likePost(String username, int topicId, int post, boolean like) {
-        Result usernameCheck = usernameCheck(username);
+        Result usernameCheck = Check.usernameCheck(username,c);
         if (!usernameCheck.isSuccess()) {
             return usernameCheck;
         }
